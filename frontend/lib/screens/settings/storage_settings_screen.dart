@@ -2,6 +2,8 @@
 // DocMind Flutter — Storage Settings Screen
 // Google Drive ONLY — paste Service Account JSON + folder ID.
 // ============================================================
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -282,9 +284,7 @@ class _StorageSettingsScreenState
                       validator: (v) {
                         if (v == null || v.trim().isEmpty)
                           return 'Service Account JSON wajib diisi';
-                        // Try basic JSON parse
                         try {
-                          import 'dart:convert';
                           jsonDecode(v.trim());
                         } catch (_) {
                           return 'Format JSON tidak valid — pastikan copy dari file .json';

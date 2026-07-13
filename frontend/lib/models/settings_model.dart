@@ -2,6 +2,7 @@
 // DocMind Flutter — App Settings model
 // Google Drive ONLY storage.
 // ============================================================
+import 'dart:convert';
 
 class AppSettings {
   // AI
@@ -87,8 +88,6 @@ class AppSettings {
   static String _serializeJsonField(dynamic value) {
     if (value == null) return '';
     if (value is String) return value;
-    // It's a Map — serialize to JSON string for the text field
-    import 'dart:convert';
     return jsonEncode(value);
   }
 
