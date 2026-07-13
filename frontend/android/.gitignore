@@ -1,0 +1,27 @@
+# Ignore Gradle build output and cache
+.gradle/
+*.class
+*.jar
+*.war
+*.aar
+*.dex
+local.properties
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*~
+*.iml
+
+# Android Studio
+.idea/
+*.keystore
+!debug.keystore
+*.jks
+
+# Generated
+app/src/main/gen/
+
+# OS
+.DS_Store
+Thumbs.db
