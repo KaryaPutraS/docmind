@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
-# Explicit dotenv loading as fallback before pydantic-settings
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 
 
@@ -21,14 +20,7 @@ class Settings(BaseSettings):
     postgres_port: int = 5432
     postgres_db: str = "docmind"
 
-    # ---- MinIO ----
-    minio_root_user: str = "docmind_admin"
-    minio_root_password: str = "docmind_secret_change_me"
-    minio_endpoint: str = "localhost:9000"
-    minio_bucket: str = "docmind-documents"
-    minio_secure: bool = False
-
-    # ---- Gemini AI ----
+    # ---- Gemini AI (fallback) ----
     gemini_api_key: str = ""
     gemini_model: str = "gemini-1.5-pro"
 
@@ -53,7 +45,6 @@ class Settings(BaseSettings):
 
     @property
     def ocr_keyword_list(self) -> list[str]:
-        """Return keywords as a lowercase list for matching."""
         return [kw.strip().lower() for kw in self.ocr_keywords.split(",") if kw.strip()]
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}

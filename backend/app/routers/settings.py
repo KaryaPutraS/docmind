@@ -1,5 +1,5 @@
 # ============================================================
-# DocMind — Settings API router (for Flutter settings screen)
+# DocMind — Settings API router
 # ============================================================
 import logging
 
@@ -7,90 +7,62 @@ from fastapi import APIRouter, HTTPException
 
 from app.settings_store import (
     KNOWN_MODELS,
-    AppSettings,
-    SettingsUpdate,
     get_settings,
+    is_google_drive_configured,
     update_settings,
 )
-from app.config import get_settings as get_env_settings
+from app.settings_store import AppSettings, SettingsUpdate
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 
 @router.get("/", response_model=AppSettings)
-async def read_settings():
-    """Return all current app settings."""
-    return get_settings()
+def read_settings():
+    """Return current runtime settings (API keys are truncated for display)."""
+    s = get_settings()
+    return s
 
 
 @router.patch("/", response_model=AppSettings)
-async def patch_settings(body: SettingsUpdate):
-    """Update one or more settings fields. Returns the full updated settings."""
+def patch_settings(patch: SettingsUpdate):
+    """Update runtime settings. Only provide fields you want to change."""
     try:
-        return update_settings(body)
-    except Exception as exc:
-        logger.error("Failed to update settings: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc))
+        return update_settings(patch)
+    except Exception as e:
+        logger.exception("Failed to update settings")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/models", response_model=dict)
-async def list_models(provider: str = "gemini"):
-    """
-    Return known models for a given AI provider.
-    The Flutter UI calls this to auto-populate the model dropdown
-    when the user selects a provider.
-    """
-    models = KNOWN_MODELS.get(provider, [])
+@router.get("/status")
+def system_status():
+    """Return live status of all services."""
+    from app.config import get_settings as get_env
+
+    env = get_env()
+
+    drive_ok = is_google_drive_configured()
+
     return {
-        "provider": provider,
-        "models": models,
-        "default": models[0] if models else "",
-    }
-
-
-@router.get("/providers", response_model=dict)
-async def list_providers():
-    """Return all supported AI providers with their logo colors."""
-    return {
-        "providers": [
-            {"id": "gemini",     "name": "Google Gemini",     "color": "#4285F4"},
-            {"id": "openai",     "name": "OpenAI",            "color": "#10A37F"},
-            {"id": "groq",       "name": "Groq",              "color": "#F55036"},
-            {"id": "anthropic",  "name": "Anthropic Claude",  "color": "#D97757"},
-            {"id": "deepseek",   "name": "DeepSeek",          "color": "#4D6BFE"},
-        ]
-    }
-
-
-@router.get("/status", response_model=dict)
-async def system_status():
-    """Quick health + connection status for the dashboard."""
-    env = get_env_settings()
-
-    status = {
         "api": "running",
-        "gemini_configured": bool(env.gemini_api_key),
-        "minio_endpoint": env.minio_endpoint,
-        "minio_bucket": env.minio_bucket,
-        "postgres_host": env.postgres_host,
-        "waha_webhook_secret_set": env.waha_webhook_secret not in ("", "change_me"),
+        "postgres": "configured" if env.postgres_host else "not-configured",
+        "google_drive": "connected" if drive_ok else "not-configured",
+        "drive_credentials_set": drive_ok,
+        "waqa_webhook_secret_set": bool(env.waha_webhook_secret and env.waha_webhook_secret != "change_me"),
     }
 
-    try:
-        from app.database import engine
-        async with engine.connect() as conn:
-            await conn.execute("SELECT 1")
-        status["postgres"] = "connected"
-    except Exception:
-        status["postgres"] = "disconnected"
 
-    try:
-        from app.minio_client import get_minio_client
-        client = get_minio_client()
-        client.list_buckets()
-        status["minio"] = "connected"
-    except Exception:
-        status["minio"] = "disconnected"
+@router.get("/providers")
+def list_providers():
+    """Return available AI providers and their models."""
+    result = []
+    for provider, models in KNOWN_MODELS.items():
+        result.append({"id": provider, "name": provider.capitalize(), "models": models})
+    return result
 
-    return status
+
+@router.get("/models")
+def list_models(provider: str = "gemini"):
+    """Return models for a specific AI provider."""
+    models = KNOWN_MODELS.get(provider, [])
+    return {"provider": provider, "models": models}

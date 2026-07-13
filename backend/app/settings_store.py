@@ -1,7 +1,6 @@
 # ============================================================
 # DocMind — Dynamic Settings Store (backed by JSON file)
-# Runtime settings that can be changed from the Flutter UI
-# without redeploy. Separate from .env secrets.
+# Google Drive ONLY storage. No MinIO, no S3, no Firebase.
 # ============================================================
 import json
 import logging
@@ -18,32 +17,22 @@ SETTINGS_FILE = Path(os.getenv("DOCMIND_SETTINGS_FILE", "/data/settings.json"))
 _lock = Lock()
 
 # ── Known provider → models mapping ─────────────────────────
-# These are returned by the /api/settings/models endpoint so the
-# Flutter UI can show a dropdown after user picks a provider.
 KNOWN_MODELS = {
     "gemini": [
-        "gemini-2.5-flash",
-        "gemini-2.5-pro",
-        "gemini-2.0-flash",
-        "gemini-1.5-pro",
-        "gemini-1.5-flash",
-        "gemini-1.5-flash-8b",
+        "gemini-2.5-flash", "gemini-2.5-pro",
+        "gemini-2.0-flash", "gemini-1.5-pro",
+        "gemini-1.5-flash", "gemini-1.5-flash-8b",
     ],
     "openai": [
-        "gpt-4o",
-        "gpt-4o-mini",
-        "gpt-4.1",
-        "gpt-4.1-mini",
-        "o4-mini",
-        "o3-mini",
+        "gpt-4o", "gpt-4o-mini", "gpt-4.1",
+        "gpt-4.1-mini", "o4-mini", "o3-mini",
     ],
     "groq": [
         "llama-4-scout-17b-16e-instruct",
         "llama-4-maverick-17b-128e-instruct",
         "llama-3.3-70b-versatile",
         "deepseek-r1-distill-llama-70b",
-        "qwen-2.5-32b",
-        "mixtral-8x7b-32768",
+        "qwen-2.5-32b", "mixtral-8x7b-32768",
     ],
     "anthropic": [
         "claude-sonnet-4-20250514",
@@ -52,22 +41,20 @@ KNOWN_MODELS = {
         "claude-3-opus-20240229",
     ],
     "deepseek": [
-        "deepseek-chat",
-        "deepseek-reasoner",
+        "deepseek-chat", "deepseek-reasoner",
     ],
 }
 
-# Default settings
 _DEFAULTS = {
     # ── AI ─────────────────────────────────────────
     "ai_provider": "gemini",
     "ai_model": "gemini-1.5-pro",
-    "ai_api_key": "",          # ⭐ NEW: user's own API key
+    "ai_api_key": "",
     "ai_temperature": 0.3,
     "ai_max_tokens": 2048,
     # ── WAHA ───────────────────────────────────────
     "waha_api_url": "http://localhost:3000",
-    "waha_api_key": "",        # ⭐ NEW: WAHA API key / session token
+    "waha_api_key": "",
     "waha_session": "default",
     "waha_polling_interval_seconds": 30,
     "waha_group_whitelist": [],
@@ -79,18 +66,9 @@ _DEFAULTS = {
         "Ijazah", "Rekening", "Formulir",
     ],
     "ocr_language": "ind+eng",
-    # ── Storage ────────────────────────────────────
-    "storage_provider": "minio",   # "minio" | "s3" | "firebase"
-    "storage_bucket": "docmind-documents",
-    "storage_endpoint": "localhost:9000",
-    "storage_region": "us-east-1",
-    # ── Firebase (required when storage_provider=firebase) ──
-    "firebase_api_key": "",
-    "firebase_project_id": "",
-    "firebase_storage_bucket": "",
-    "firebase_app_id": "",
-    "firebase_messaging_sender_id": "",
-    "firebase_auth_domain": "",
+    # ── Google Drive storage ────────────────────────
+    "google_drive_credentials_json": {},
+    "google_drive_folder_id": "root",
     # ── General ────────────────────────────────────
     "max_file_size_mb": 20,
     "allowed_mime_types": ["image/jpeg", "image/png", "image/webp", "application/pdf"],
@@ -99,7 +77,7 @@ _DEFAULTS = {
 }
 
 
-# ── Pydantic schema for API ──────────────────────────────────
+# ── Pydantic schemas ────────────────────────────────────────
 
 class AppSettings(BaseModel):
     # AI
@@ -118,18 +96,9 @@ class AppSettings(BaseModel):
     ocr_enabled: bool = True
     ocr_keywords: list[str] = Field(default_factory=list)
     ocr_language: str = "ind+eng"
-    # Storage
-    storage_provider: str = "minio"
-    storage_bucket: str = "docmind-documents"
-    storage_endpoint: str = "localhost:9000"
-    storage_region: str = "us-east-1"
-    # Firebase
-    firebase_api_key: str = ""
-    firebase_project_id: str = ""
-    firebase_storage_bucket: str = ""
-    firebase_app_id: str = ""
-    firebase_messaging_sender_id: str = ""
-    firebase_auth_domain: str = ""
+    # Google Drive
+    google_drive_credentials_json: dict | str = Field(default_factory=dict)
+    google_drive_folder_id: str = "root"
     # General
     max_file_size_mb: int = Field(default=20, ge=1, le=500)
     allowed_mime_types: list[str] = Field(default_factory=list)
@@ -138,7 +107,6 @@ class AppSettings(BaseModel):
 
 
 class SettingsUpdate(BaseModel):
-    """Partial update — only the fields provided will be changed."""
     ai_provider: str | None = None
     ai_model: str | None = None
     ai_api_key: str | None = None
@@ -152,16 +120,8 @@ class SettingsUpdate(BaseModel):
     ocr_enabled: bool | None = None
     ocr_keywords: list[str] | None = None
     ocr_language: str | None = None
-    storage_provider: str | None = None
-    storage_bucket: str | None = None
-    storage_endpoint: str | None = None
-    storage_region: str | None = None
-    firebase_api_key: str | None = None
-    firebase_project_id: str | None = None
-    firebase_storage_bucket: str | None = None
-    firebase_app_id: str | None = None
-    firebase_messaging_sender_id: str | None = None
-    firebase_auth_domain: str | None = None
+    google_drive_credentials_json: dict | str | None = None
+    google_drive_folder_id: str | None = None
     max_file_size_mb: int | None = Field(default=None, ge=1, le=500)
     allowed_mime_types: list[str] | None = None
     notifications_enabled: bool | None = None
@@ -181,6 +141,7 @@ def _load_raw() -> dict:
     else:
         data = {}
     merged = dict(_DEFAULTS)
+    # Only merge keys that exist in defaults (ignore stale keys from old versions)
     merged.update({k: v for k, v in data.items() if k in _DEFAULTS})
     return merged
 
@@ -206,7 +167,6 @@ def update_settings(patch: SettingsUpdate) -> AppSettings:
 
 
 def get_ai_api_key() -> str:
-    """Resolved API key: settings-store value first, then env fallback."""
     settings = get_settings()
     return settings.ai_api_key or os.getenv("GEMINI_API_KEY", "")
 
@@ -214,3 +174,21 @@ def get_ai_api_key() -> str:
 def get_waha_api_key() -> str:
     settings = get_settings()
     return settings.waha_api_key or os.getenv("WAHA_API_KEY", "")
+
+
+def is_google_drive_configured() -> bool:
+    """Check if Google Drive credentials are actually set."""
+    settings = get_settings()
+    creds = settings.google_drive_credentials_json
+    if isinstance(creds, str):
+        try:
+            creds = json.loads(creds)
+        except (json.JSONDecodeError, TypeError):
+            return False
+    if not creds:
+        return False
+    # Must have at minimum: type, project_id, private_key, client_email
+    required = ("type", "project_id", "private_key", "client_email")
+    if isinstance(creds, dict):
+        return all(creds.get(k) for k in required)
+    return False

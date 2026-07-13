@@ -17,6 +17,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.minio_client import upload_file, get_download_url
+# Google Drive is the only storage backend; minio_client.py wraps it for
+# backward-compatible import naming.
 from app.models import Document
 from app.schemas import GeminiClassification, WAHAFile, WAHAMessage
 from app.services.ai_service import classify_document, generate_embedding
@@ -111,12 +113,12 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
         tmp.close()
 
     try:
-        provider, stored_ref = upload_file(tmp_path, object_key, content_type=mime)
+        drive_file_id = upload_file(tmp_path, object_key, content_type=mime)
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
     # ── 6. Persist metadata to PostgreSQL ──────────────────────
-    doc = await _save_metadata(msg, media, ocr_text, classification, embedding, object_key, provider=provider)
+    doc = await _save_metadata(msg, media, ocr_text, classification, embedding, object_key, drive_file_id=drive_file_id)
 
     logger.info("Document processed: %s → %s", media.filename, classification.new_filename)
     return {"status": "processed", "document_id": str(doc.id)}
@@ -146,7 +148,7 @@ async def _save_metadata(
     classification: "GeminiClassification",
     embedding: list[float],
     object_key: str,
-    provider: str = "minio",
+    drive_file_id: str = "",
 ) -> Document:
     """Insert (or upsert on wa_message_id) a document row."""
     async with AsyncSessionLocal() as session:
@@ -165,8 +167,7 @@ async def _save_metadata(
                 file_size=media.size,
                 minio_bucket=env.minio_bucket,
                 minio_object=object_key,
-                storage_provider=provider,
-                firebase_url=object_key if provider == "firebase" else None,
+                drive_file_id=drive_file_id,
                 ocr_text=ocr_text,
                 ai_summary=classification.summary,
                 ai_metadata=classification.model_dump(),

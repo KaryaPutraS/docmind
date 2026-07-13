@@ -1,6 +1,6 @@
 // ============================================================
-// DocMind Flutter — Storage Settings Screen (v2)
-// Added: Firebase provider option with required Firebase config fields
+// DocMind Flutter — Storage Settings Screen
+// Google Drive ONLY — paste Service Account JSON + folder ID.
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,50 +18,26 @@ class StorageSettingsScreen extends ConsumerStatefulWidget {
 class _StorageSettingsScreenState
     extends ConsumerState<StorageSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _endpointCtrl;
-  late TextEditingController _bucketCtrl;
-  late TextEditingController _regionCtrl;
+  late TextEditingController _credentialsCtrl;
+  late TextEditingController _folderIdCtrl;
   late TextEditingController _maxSizeCtrl;
-  // Firebase fields
-  late TextEditingController _fbApiKeyCtrl;
-  late TextEditingController _fbProjectIdCtrl;
-  late TextEditingController _fbStorageBucketCtrl;
-  late TextEditingController _fbAppIdCtrl;
-  late TextEditingController _fbSenderIdCtrl;
-  late TextEditingController _fbAuthDomainCtrl;
-
-  String _provider = 'minio';
   bool _saving = false;
+  bool _driveConnected = false;
 
   @override
   void initState() {
     super.initState();
-    _endpointCtrl = TextEditingController();
-    _bucketCtrl = TextEditingController();
-    _regionCtrl = TextEditingController();
+    _credentialsCtrl = TextEditingController();
+    _folderIdCtrl = TextEditingController();
     _maxSizeCtrl = TextEditingController();
-    _fbApiKeyCtrl = TextEditingController();
-    _fbProjectIdCtrl = TextEditingController();
-    _fbStorageBucketCtrl = TextEditingController();
-    _fbAppIdCtrl = TextEditingController();
-    _fbSenderIdCtrl = TextEditingController();
-    _fbAuthDomainCtrl = TextEditingController();
 
     Future.microtask(() {
       final settingsAsync = ref.read(settingsProvider);
       settingsAsync.whenData((s) {
         setState(() {
-          _provider = s.storageProvider;
-          _endpointCtrl.text = s.storageEndpoint;
-          _bucketCtrl.text = s.storageBucket;
-          _regionCtrl.text = s.storageRegion;
+          _credentialsCtrl.text = s.googleDriveCredentialsJson;
+          _folderIdCtrl.text = s.googleDriveFolderId;
           _maxSizeCtrl.text = s.maxFileSizeMb.toString();
-          _fbApiKeyCtrl.text = s.firebaseApiKey;
-          _fbProjectIdCtrl.text = s.firebaseProjectId;
-          _fbStorageBucketCtrl.text = s.firebaseStorageBucket;
-          _fbAppIdCtrl.text = s.firebaseAppId;
-          _fbSenderIdCtrl.text = s.firebaseMessagingSenderId;
-          _fbAuthDomainCtrl.text = s.firebaseAuthDomain;
         });
       });
     });
@@ -69,16 +45,9 @@ class _StorageSettingsScreenState
 
   @override
   void dispose() {
-    _endpointCtrl.dispose();
-    _bucketCtrl.dispose();
-    _regionCtrl.dispose();
+    _credentialsCtrl.dispose();
+    _folderIdCtrl.dispose();
     _maxSizeCtrl.dispose();
-    _fbApiKeyCtrl.dispose();
-    _fbProjectIdCtrl.dispose();
-    _fbStorageBucketCtrl.dispose();
-    _fbAppIdCtrl.dispose();
-    _fbSenderIdCtrl.dispose();
-    _fbAuthDomainCtrl.dispose();
     super.dispose();
   }
 
@@ -89,34 +58,61 @@ class _StorageSettingsScreenState
     try {
       final api = ref.read(apiServiceProvider);
       await api.updateSettings({
-        'storage_provider': _provider,
-        'storage_endpoint': _endpointCtrl.text.trim(),
-        'storage_bucket': _bucketCtrl.text.trim(),
-        'storage_region': _regionCtrl.text.trim(),
+        'google_drive_credentials_json': _credentialsCtrl.text.trim(),
+        'google_drive_folder_id': _folderIdCtrl.text.trim(),
         'max_file_size_mb': int.parse(_maxSizeCtrl.text.trim()),
-        'firebase_api_key': _fbApiKeyCtrl.text.trim(),
-        'firebase_project_id': _fbProjectIdCtrl.text.trim(),
-        'firebase_storage_bucket': _fbStorageBucketCtrl.text.trim(),
-        'firebase_app_id': _fbAppIdCtrl.text.trim(),
-        'firebase_messaging_sender_id': _fbSenderIdCtrl.text.trim(),
-        'firebase_auth_domain': _fbAuthDomainCtrl.text.trim(),
       });
       ref.invalidate(settingsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ Storage settings saved'),
-              backgroundColor: Colors.green, duration: Duration(seconds: 2)),
+          const SnackBar(
+            content: Text('✅ Google Drive settings saved'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
         );
-        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ Failed: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('❌ Failed: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _testConnection() async {
+    try {
+      final api = ref.read(apiServiceProvider);
+      final status = await api.getSystemStatus();
+      setState(() => _driveConnected = status.driveCredentialsSet);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _driveConnected
+                  ? '✅ Google Drive: Connected'
+                  : '⚠️ Google Drive: Not configured',
+            ),
+            backgroundColor: _driveConnected ? Colors.green : Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ Connection test failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -128,13 +124,19 @@ class _StorageSettingsScreenState
         elevation: 0,
         backgroundColor: const Color(0xFF1A1F36),
         foregroundColor: Colors.white,
-        title: const Text('Storage Config',
+        title: const Text('Google Drive',
             style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.wifi_tethering),
+            tooltip: 'Test connection',
+            onPressed: _testConnection,
+          ),
           TextButton(
             onPressed: _saving ? null : _save,
             child: _saving
-                ? const SizedBox(width: 20, height: 20,
+                ? const SizedBox(
+                    width: 20, height: 20,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
                 : const Text('SAVE',
@@ -148,7 +150,98 @@ class _StorageSettingsScreenState
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ── Provider ──────────────────────────
+            // ── Google Drive branding ──────────────
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+              color: const Color(0xFF0F9D58),
+              child: const Padding(
+                padding: EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Icon(Icons.cloud_done_rounded,
+                        size: 40, color: Colors.white),
+                    SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Google Drive',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700)),
+                          SizedBox(height: 4),
+                          Text(
+                            'Semua file otomatis tersimpan ke Google Drive.\n'
+                            'Gunakan Service Account untuk akses programmatic.',
+                            style:
+                                TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Step-by-step guide ──────────────────
+            Card(
+              elevation: 0,
+              color: Colors.blue.shade50,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              child: const Padding(
+                padding: EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline,
+                            color: Colors.blue, size: 20),
+                        SizedBox(width: 8),
+                        Text('Cara mendapatkan Service Account JSON:',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                                color: Colors.blue)),
+                      ],
+                    ),
+                    SizedBox(height: 10),
+                    _StepNumber(1, 'Buka Google Cloud Console'),
+                    _StepNumber(2, 'Buat project → APIs & Services → Enable Drive API'),
+                    _StepNumber(3, 'Credentials → Create Credentials → Service Account'),
+                    _StepNumber(4, 'Isi nama → Done → klik email service account'),
+                    _StepNumber(5, 'Keys → Add Key → Create New Key → JSON'),
+                    _StepNumber(6, 'Download JSON → buka → copy seluruh isi'),
+                    _StepNumber(7, 'Paste ke kolom di bawah ini'),
+                    SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.folder_shared, color: Colors.amber, size: 18),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Opsional: isi Folder ID untuk menyimpan di folder tertentu.\n'
+                            'Kosongkan untuk upload ke "My Drive" root.',
+                            style: TextStyle(fontSize: 11, color: Colors.blueGrey),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // ── Credentials JSON ────────────────────
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -158,22 +251,46 @@ class _StorageSettingsScreenState
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Storage Provider',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w600, fontSize: 14)),
-                    const SizedBox(height: 8),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                    const Row(
                       children: [
-                        _providerChip('minio', 'MinIO', Icons.storage,
-                            const Color(0xFFC63527)),
-                        _providerChip('s3', 'AWS S3', Icons.cloud,
-                            const Color(0xFFF90)),
-                        _providerChip('firebase', 'Firebase',
-                            Icons.local_fire_department,
-                            const Color(0xFFFFA000)),
+                        Icon(Icons.code, size: 20, color: Color(0xFF0F9D58)),
+                        SizedBox(width: 8),
+                        Text('Service Account JSON Key',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14)),
                       ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Paste seluruh isi file JSON Service Account di sini.\n'
+                      'Format: {"type":"service_account","project_id":"...", ...}',
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _credentialsCtrl,
+                      maxLines: 12,
+                      style: const TextStyle(
+                          fontSize: 11, fontFamily: 'monospace'),
+                      decoration: const InputDecoration(
+                        hintText:
+                            '{\n  "type": "service_account",\n  "project_id": "docmind-xxx",\n  "private_key": "-----BEGIN PRIVATE KEY-----\\n...",\n  "client_email": "docmind@docmind-xxx.iam.gserviceaccount.com",\n  ...\n}',
+                        border: OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty)
+                          return 'Service Account JSON wajib diisi';
+                        // Try basic JSON parse
+                        try {
+                          import 'dart:convert';
+                          jsonDecode(v.trim());
+                        } catch (_) {
+                          return 'Format JSON tidak valid — pastikan copy dari file .json';
+                        }
+                        return null;
+                      },
                     ),
                   ],
                 ),
@@ -182,140 +299,95 @@ class _StorageSettingsScreenState
 
             const SizedBox(height: 12),
 
-            // ── Firebase fields (shown only when firebase selected) ─
-            if (_provider == 'firebase') ...[
-              _sectionHeader('Firebase Configuration',
-                  'Dapatkan dari Firebase Console → Project Settings → General'),
-              _buildInputCard(
-                icon: Icons.vpn_key_rounded,
-                title: 'Firebase API Key',
-                subtitle: 'Web API Key dari Firebase project',
-                controller: _fbApiKeyCtrl,
-                hint: 'AIzaSy...',
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
-              ),
-              const SizedBox(height: 12),
-              _buildInputCard(
-                icon: Icons.badge_rounded,
-                title: 'Project ID',
-                subtitle: 'ID project Firebase',
-                controller: _fbProjectIdCtrl,
-                hint: 'docmind-xxxxx',
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Wajib diisi' : null,
-              ),
-              const SizedBox(height: 12),
-              _buildInputCard(
-                icon: Icons.cloud_sync_rounded,
-                title: 'Storage Bucket',
-                subtitle: 'gRPC bucket URL (biasanya <project>.appspot.com)',
-                controller: _fbStorageBucketCtrl,
-                hint: 'docmind-xxxxx.appspot.com',
-              ),
-              const SizedBox(height: 12),
-              _buildInputCard(
-                icon: Icons.phone_iphone_rounded,
-                title: 'App ID',
-                subtitle: 'Firebase App ID (ada di Project Settings)',
-                controller: _fbAppIdCtrl,
-                hint: '1:123456789:android:...',
-              ),
-              const SizedBox(height: 12),
-              _buildInputCard(
-                icon: Icons.notifications_active_rounded,
-                title: 'Messaging Sender ID',
-                subtitle: 'Firebase Cloud Messaging sender ID',
-                controller: _fbSenderIdCtrl,
-                hint: '123456789012',
-              ),
-              const SizedBox(height: 12),
-              _buildInputCard(
-                icon: Icons.language_rounded,
-                title: 'Auth Domain',
-                subtitle: 'Firebase Auth domain',
-                controller: _fbAuthDomainCtrl,
-                hint: 'docmind-xxxxx.firebaseapp.com',
-              ),
-              const SizedBox(height: 8),
-              Card(
-                color: Colors.blue.shade50,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-                child: const Padding(
-                  padding: EdgeInsets.all(14),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.info_outline, color: Colors.blue, size: 20),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Untuk mendapatkan Firebase config:\n'
-                          '1. Buka Firebase Console → Project Settings\n'
-                          '2. Tab General → scroll ke "Your apps"\n'
-                          '3. Pilih Web App → copy Firebase config JSON\n'
-                          '4. Paste masing-masing field di atas',
-                          style: TextStyle(fontSize: 12, color: Colors.blue),
-                        ),
+            // ── Folder ID ──────────────────────────
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.folder_rounded,
+                            size: 20, color: Color(0xFF0F9D58)),
+                        SizedBox(width: 8),
+                        Text('Google Drive Folder ID',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'ID folder dari URL Google Drive:\n'
+                      'https://drive.google.com/drive/folders/<ID INI>\n'
+                      'Kosongkan: "root" (My Drive).',
+                      style:
+                          TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _folderIdCtrl,
+                      decoration: const InputDecoration(
+                        hintText: 'root (atau folder ID, contoh: 1xYZ9abc123...)',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.folder_open),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
+            ),
 
-              const SizedBox(height: 12),
-            ],
+            const SizedBox(height: 12),
 
-            // ── S3/MinIO fields (hidden for firebase) ────
-            if (_provider != 'firebase') ...[
-              _buildInputCard(
-                icon: Icons.dns_rounded,
-                title: 'Endpoint',
-                subtitle: 'Host:port of your S3-compatible storage',
-                controller: _endpointCtrl,
-                hint: 'localhost:9000',
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
+            // ── Max file size ──────────────────────
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14)),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.data_usage_rounded,
+                            size: 20, color: Color(0xFF0F9D58)),
+                        SizedBox(width: 8),
+                        Text('Max File Size (MB)',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                        'File > ukuran ini akan ditolak.',
+                        style: TextStyle(
+                            fontSize: 11, color: Colors.grey.shade600)),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _maxSizeCtrl,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        hintText: '20',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.storage),
+                        suffixText: '1 - 500 MB',
+                      ),
+                      validator: (v) {
+                        final n = int.tryParse(v ?? '');
+                        if (n == null || n < 1 || n > 500)
+                          return '1 - 500 MB';
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              _buildInputCard(
-                icon: Icons.folder_special_rounded,
-                title: 'Bucket Name',
-                subtitle: 'The bucket where documents will be stored',
-                controller: _bucketCtrl,
-                hint: 'docmind-documents',
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              _buildInputCard(
-                icon: Icons.public_rounded,
-                title: 'Region',
-                subtitle:
-                    'AWS region (for S3) or leave as us-east-1 for MinIO',
-                controller: _regionCtrl,
-                hint: 'us-east-1',
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-            ],
-
-            // ── Max File Size (always shown) ─────────
-            _buildInputCard(
-              icon: Icons.data_usage_rounded,
-              title: 'Max File Size (MB)',
-              subtitle: 'Files larger than this will be rejected',
-              controller: _maxSizeCtrl,
-              hint: '20',
-              keyboardType: TextInputType.number,
-              validator: (v) {
-                final n = int.tryParse(v ?? '');
-                if (n == null || n < 1 || n > 500) return '1 - 500 MB';
-                return null;
-              },
             ),
 
             const SizedBox(height: 40),
@@ -324,89 +396,43 @@ class _StorageSettingsScreenState
       ),
     );
   }
+}
 
-  Widget _providerChip(
-      String id, String label, IconData icon, Color color) {
-    final selected = _provider == id;
-    return ChoiceChip(
-      selected: selected,
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: selected ? Colors.white : color),
-          const SizedBox(width: 6),
-          Text(label),
-        ],
-      ),
-      selectedColor: color,
-      backgroundColor: color.withOpacity(0.08),
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : color,
-        fontWeight: FontWeight.w600,
-        fontSize: 13,
-      ),
-      onSelected: (_) => setState(() => _provider = id),
-    );
-  }
+class _StepNumber extends StatelessWidget {
+  final int number;
+  final String text;
+  const _StepNumber(this.number, this.text);
 
-  Widget _sectionHeader(String title, String subtitle) {
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, top: 4, bottom: 8),
-      child: Column(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A1F36))),
-          Text(subtitle,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              color: Colors.blue,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Text('$number',
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.blueGrey,
+                    height: 1.5)),
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildInputCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required TextEditingController controller,
-    required String hint,
-    String? Function(String?)? validator,
-    TextInputType? keyboardType,
-  }) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(icon, size: 20, color: const Color(0xFF0EA5E9)),
-                const SizedBox(width: 8),
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 14)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(subtitle,
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: controller,
-              keyboardType: keyboardType,
-              decoration: InputDecoration(
-                hintText: hint,
-                border: const OutlineInputBorder(),
-              ),
-              validator: validator,
-            ),
-          ],
-        ),
       ),
     );
   }
