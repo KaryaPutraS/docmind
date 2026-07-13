@@ -10,10 +10,13 @@ import '../models/document_model.dart';
 class ApiService {
   late final Dio _dio;
 
-  /// Override the base URL at runtime (e.g. for production builds).
-  // TODO(config): Load base URL from environment or build config instead of hardcoding.
-  //               Consider --dart-define=API_BASE_URL=https://api.docmind.example.com
-  static String baseUrlOverride = 'http://10.0.2.2:8000';
+  /// Override the base URL at runtime or via --dart-define=API_BASE_URL
+  /// Default: Android emulator → host machine
+  static const String _definedUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://10.0.2.2:8000',
+  );
+  static String baseUrlOverride = _definedUrl;
 
   ApiService() {
     _dio = Dio(BaseOptions(

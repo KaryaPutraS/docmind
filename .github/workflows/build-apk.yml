@@ -1,0 +1,97 @@
+# ============================================================
+# DocMind — GitHub Actions: Build Flutter APK
+# Trigger: manual (workflow_dispatch) atau push ke master
+# ============================================================
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: 'Backend API base URL (e.g. https://docmind.yourdomain.com)'
+        required: true
+        default: 'http://10.0.2.2:8000'
+        type: string
+  push:
+    branches: [master]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/build-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.27.1'
+          cache: true
+
+      - name: Show Flutter version
+        run: flutter --version
+
+      - name: Set API base URL
+        run: |
+          API_URL="${{ github.event.inputs.api_base_url || 'http://10.0.2.2:8000' }}"
+          echo "BUILD_API_BASE_URL=$API_URL" >> $GITHUB_ENV
+          echo "🔗 API Base URL: $API_URL"
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze Dart code
+        run: flutter analyze || echo "⚠️ Analysis warnings (non-blocking)"
+
+      - name: Build APK (debug)
+        run: |
+          flutter build apk --debug \
+            --dart-define=API_BASE_URL=${{ env.BUILD_API_BASE_URL }} \
+            --target-platform android-arm64
+
+      - name: Build APK (release)
+        run: |
+          flutter build apk --release \
+            --dart-define=API_BASE_URL=${{ env.BUILD_API_BASE_URL }} \
+            --target-platform android-arm64
+
+      - name: Rename APKs for download
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr '+' '-')
+          API_SUFFIX=$(echo "${{ env.BUILD_API_BASE_URL }}" | sed 's|[^a-zA-Z0-9]|_|g' | cut -c1-30)
+          cp build/app/outputs/flutter-apk/app-debug.apk "docmind-debug_${API_SUFFIX}.apk"
+          cp build/app/outputs/flutter-apk/app-release.apk "docmind-release_v${VERSION}_${API_SUFFIX}.apk"
+          echo "DEBUG_APK=docmind-debug_${API_SUFFIX}.apk" >> $GITHUB_ENV
+          echo "RELEASE_APK=docmind-release_v${VERSION}_${API_SUFFIX}.apk" >> $GITHUB_ENV
+
+      - name: Upload debug APK (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: docmind-debug-apk
+          path: frontend/${{ env.DEBUG_APK }}
+          retention-days: 7
+
+      - name: Upload release APK (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: docmind-release-apk
+          path: frontend/${{ env.RELEASE_APK }}
+          retention-days: 30
+
+      - name: Show download summary
+        run: |
+          echo ""
+          echo "══════════════════════════════════════════════"
+          echo "  ✅ BUILD SUCCESS"
+          echo "  📦 Debug APK:  $DEBUG_APK"
+          echo "  📦 Release APK: $RELEASE_APK"
+          echo "  🔗 Download from: Actions → Artifacts tab"
+          echo "══════════════════════════════════════════════"
