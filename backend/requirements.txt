@@ -1,0 +1,31 @@
+# DocMind Backend — Python dependencies
+# ============================================================
+
+# --- Web framework ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# --- Database ---
+asyncpg==0.30.0
+sqlalchemy[asyncio]==2.0.36
+pgvector==0.3.6
+alembic==1.14.1
+
+# --- MinIO (S3) ---
+minio==7.2.13
+
+# --- OCR ---
+pytesseract==0.3.13
+pdf2image==1.17.0
+Pillow==11.1.0
+
+# --- AI / LLM ---
+google-generativeai==0.8.4
+httpx==0.28.1
+
+# --- Utilities ---
+python-multipart==0.0.20
+aiofiles==24.1.0
+python-dotenv==1.0.1
