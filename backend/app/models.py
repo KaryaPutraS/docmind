@@ -34,6 +34,8 @@ class Document(Base):
 
     minio_bucket: Mapped[str] = mapped_column(Text, default="docmind-documents")
     minio_object: Mapped[str] = mapped_column(Text, nullable=False)
+    storage_provider: Mapped[str | None] = mapped_column(Text, nullable=True, default="minio")
+    firebase_url: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     ocr_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)

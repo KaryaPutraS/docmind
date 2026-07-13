@@ -16,7 +16,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.config import get_settings
 from app.database import AsyncSessionLocal
-from app.minio_client import upload_file_to_minio
+from app.minio_client import upload_file, get_download_url
 from app.models import Document
 from app.schemas import GeminiClassification, WAHAFile, WAHAMessage
 from app.services.ai_service import classify_document, generate_embedding
@@ -86,7 +86,7 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
     classification = await classify_document(ocr_text, media.filename or "unknown")
     embedding = await generate_embedding(ocr_text[:4000] or classification.summary)
 
-    # ── 5. Upload to MinIO ─────────────────────────────────────
+    # ── 5. Upload to storage ────────────────────────────────────
     ext = Path(media.filename or "doc").suffix or ".bin"
 
     # Sanitize AI-generated path segments to prevent traversal/pollution
@@ -111,12 +111,12 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
         tmp.close()
 
     try:
-        upload_file_to_minio(tmp_path, object_key, content_type=mime)
+        provider, stored_ref = upload_file(tmp_path, object_key, content_type=mime)
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
     # ── 6. Persist metadata to PostgreSQL ──────────────────────
-    doc = await _save_metadata(msg, media, ocr_text, classification, embedding, object_key)
+    doc = await _save_metadata(msg, media, ocr_text, classification, embedding, object_key, provider=provider)
 
     logger.info("Document processed: %s → %s", media.filename, classification.new_filename)
     return {"status": "processed", "document_id": str(doc.id)}
@@ -146,6 +146,7 @@ async def _save_metadata(
     classification: "GeminiClassification",
     embedding: list[float],
     object_key: str,
+    provider: str = "minio",
 ) -> Document:
     """Insert (or upsert on wa_message_id) a document row."""
     async with AsyncSessionLocal() as session:
@@ -162,8 +163,10 @@ async def _save_metadata(
                 folder_path=classification.folder_structure,
                 mime_type=media.mimetype,
                 file_size=media.size,
-                minio_bucket=settings.minio_bucket,
+                minio_bucket=env.minio_bucket,
                 minio_object=object_key,
+                storage_provider=provider,
+                firebase_url=object_key if provider == "firebase" else None,
                 ocr_text=ocr_text,
                 ai_summary=classification.summary,
                 ai_metadata=classification.model_dump(),

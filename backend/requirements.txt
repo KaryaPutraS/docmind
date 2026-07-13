@@ -13,7 +13,7 @@ sqlalchemy[asyncio]==2.0.36
 pgvector==0.3.6
 alembic==1.14.1
 
-# --- MinIO (S3) ---
+# --- Storage ---
 minio==7.2.13
 
 # --- OCR ---

@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Query
 from sqlalchemy import select
 
 from app.database import AsyncSessionLocal
-from app.minio_client import get_presigned_url
+from app.minio_client import get_presigned_url, get_download_url
 from app.models import Document
 from app.schemas import DocumentResponse, FolderTree, SearchRequest
 
@@ -168,7 +168,7 @@ def _doc_to_response(doc: Document, include_url: bool = False) -> DocumentRespon
     url: str | None = None
     if include_url:
         try:
-            url = get_presigned_url(doc.minio_object)
+            url = get_download_url(doc.minio_object)
         except Exception:
             url = None
     return DocumentResponse(
