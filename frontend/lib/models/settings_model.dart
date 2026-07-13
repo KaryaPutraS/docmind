@@ -1,23 +1,38 @@
 // ============================================================
-// DocMind Flutter — App Settings model + service
+// DocMind Flutter — App Settings model (v2)
+// Added: ai_api_key, waha_api_key, firebase_* fields
 // ============================================================
 
 class AppSettings {
+  // AI
   final String aiProvider;
   final String aiModel;
+  final String aiApiKey;
   final double aiTemperature;
   final int aiMaxTokens;
+  // WAHA
   final String wahaApiUrl;
+  final String wahaApiKey;
   final String wahaSession;
   final int wahaPollingIntervalSeconds;
   final List<String> wahaGroupWhitelist;
+  // OCR
   final bool ocrEnabled;
   final List<String> ocrKeywords;
   final String ocrLanguage;
+  // Storage
   final String storageProvider;
   final String storageBucket;
   final String storageEndpoint;
   final String storageRegion;
+  // Firebase
+  final String firebaseApiKey;
+  final String firebaseProjectId;
+  final String firebaseStorageBucket;
+  final String firebaseAppId;
+  final String firebaseMessagingSenderId;
+  final String firebaseAuthDomain;
+  // General
   final int maxFileSizeMb;
   final List<String> allowedMimeTypes;
   final bool notificationsEnabled;
@@ -26,9 +41,11 @@ class AppSettings {
   const AppSettings({
     required this.aiProvider,
     required this.aiModel,
+    required this.aiApiKey,
     required this.aiTemperature,
     required this.aiMaxTokens,
     required this.wahaApiUrl,
+    required this.wahaApiKey,
     required this.wahaSession,
     required this.wahaPollingIntervalSeconds,
     required this.wahaGroupWhitelist,
@@ -39,6 +56,12 @@ class AppSettings {
     required this.storageBucket,
     required this.storageEndpoint,
     required this.storageRegion,
+    required this.firebaseApiKey,
+    required this.firebaseProjectId,
+    required this.firebaseStorageBucket,
+    required this.firebaseAppId,
+    required this.firebaseMessagingSenderId,
+    required this.firebaseAuthDomain,
     required this.maxFileSizeMb,
     required this.allowedMimeTypes,
     required this.notificationsEnabled,
@@ -49,42 +72,51 @@ class AppSettings {
     return AppSettings(
       aiProvider: json['ai_provider'] as String? ?? 'gemini',
       aiModel: json['ai_model'] as String? ?? 'gemini-1.5-pro',
+      aiApiKey: json['ai_api_key'] as String? ?? '',
       aiTemperature: (json['ai_temperature'] as num?)?.toDouble() ?? 0.3,
       aiMaxTokens: json['ai_max_tokens'] as int? ?? 2048,
       wahaApiUrl: json['waha_api_url'] as String? ?? '',
+      wahaApiKey: json['waha_api_key'] as String? ?? '',
       wahaSession: json['waha_session'] as String? ?? 'default',
-      wahaPollingIntervalSeconds: json['waha_polling_interval_seconds'] as int? ?? 30,
-      wahaGroupWhitelist: (json['waha_group_whitelist'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
+      wahaPollingIntervalSeconds:
+          json['waha_polling_interval_seconds'] as int? ?? 30,
+      wahaGroupWhitelist: _parseStringList(json['waha_group_whitelist']),
       ocrEnabled: json['ocr_enabled'] as bool? ?? true,
-      ocrKeywords: (json['ocr_keywords'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
+      ocrKeywords: _parseStringList(json['ocr_keywords']),
       ocrLanguage: json['ocr_language'] as String? ?? 'ind+eng',
       storageProvider: json['storage_provider'] as String? ?? 'minio',
       storageBucket: json['storage_bucket'] as String? ?? '',
       storageEndpoint: json['storage_endpoint'] as String? ?? '',
       storageRegion: json['storage_region'] as String? ?? '',
+      firebaseApiKey: json['firebase_api_key'] as String? ?? '',
+      firebaseProjectId: json['firebase_project_id'] as String? ?? '',
+      firebaseStorageBucket: json['firebase_storage_bucket'] as String? ?? '',
+      firebaseAppId: json['firebase_app_id'] as String? ?? '',
+      firebaseMessagingSenderId:
+          json['firebase_messaging_sender_id'] as String? ?? '',
+      firebaseAuthDomain: json['firebase_auth_domain'] as String? ?? '',
       maxFileSizeMb: json['max_file_size_mb'] as int? ?? 20,
-      allowedMimeTypes: (json['allowed_mime_types'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
+      allowedMimeTypes: _parseStringList(json['allowed_mime_types']),
       notificationsEnabled: json['notifications_enabled'] as bool? ?? false,
-      notificationsWebhookUrl: json['notifications_webhook_url'] as String? ?? '',
+      notificationsWebhookUrl:
+          json['notifications_webhook_url'] as String? ?? '',
     );
+  }
+
+  static List<String> _parseStringList(dynamic value) {
+    if (value is List) return value.map((e) => e.toString()).toList();
+    return [];
   }
 
   Map<String, dynamic> toJson() {
     return {
       'ai_provider': aiProvider,
       'ai_model': aiModel,
+      'ai_api_key': aiApiKey,
       'ai_temperature': aiTemperature,
       'ai_max_tokens': aiMaxTokens,
       'waha_api_url': wahaApiUrl,
+      'waha_api_key': wahaApiKey,
       'waha_session': wahaSession,
       'waha_polling_interval_seconds': wahaPollingIntervalSeconds,
       'waha_group_whitelist': wahaGroupWhitelist,
@@ -95,62 +127,17 @@ class AppSettings {
       'storage_bucket': storageBucket,
       'storage_endpoint': storageEndpoint,
       'storage_region': storageRegion,
+      'firebase_api_key': firebaseApiKey,
+      'firebase_project_id': firebaseProjectId,
+      'firebase_storage_bucket': firebaseStorageBucket,
+      'firebase_app_id': firebaseAppId,
+      'firebase_messaging_sender_id': firebaseMessagingSenderId,
+      'firebase_auth_domain': firebaseAuthDomain,
       'max_file_size_mb': maxFileSizeMb,
       'allowed_mime_types': allowedMimeTypes,
       'notifications_enabled': notificationsEnabled,
       'notifications_webhook_url': notificationsWebhookUrl,
     };
-  }
-
-  AppSettings copyWith({
-    String? aiProvider,
-    String? aiModel,
-    double? aiTemperature,
-    int? aiMaxTokens,
-    String? wahaApiUrl,
-    String? wahaSession,
-    int? wahaPollingIntervalSeconds,
-    List<String>? wahaGroupWhitelist,
-    bool? ocrEnabled,
-    List<String>? ocrKeywords,
-    String? ocrLanguage,
-    String? storageProvider,
-    String? storageBucket,
-    String? storageEndpoint,
-    String? storageRegion,
-    int? maxFileSizeMb,
-    List<String>? allowedMimeTypes,
-    bool? notificationsEnabled,
-    String? notificationsWebhookUrl,
-  }) {
-    return AppSettings(
-      aiProvider: aiProvider ?? this.aiProvider,
-      aiModel: aiModel ?? this.aiModel,
-      aiTemperature: aiTemperature ?? this.aiTemperature,
-      aiMaxTokens: aiMaxTokens ?? this.aiMaxTokens,
-      wahaApiUrl: wahaApiUrl ?? this.wahaApiUrl,
-      wahaSession: wahaSession ?? this.wahaSession,
-      wahaPollingIntervalSeconds:
-          wahaPollingIntervalSeconds ?? this.wahaPollingIntervalSeconds,
-      wahaGroupWhitelist: wahaGroupWhitelist ?? this.wahaGroupWhitelist,
-      ocrEnabled: ocrEnabled ?? this.ocrEnabled,
-      ocrKeywords: ocrKeywords ?? this.ocrKeywords,
-      ocrLanguage: ocrLanguage ?? this.ocrLanguage,
-      storageProvider: storageProvider ?? this.storageProvider,
-      storageBucket: storageBucket ?? this.storageBucket,
-      storageEndpoint: storageEndpoint ?? this.storageEndpoint,
-      storageRegion: storageRegion ?? this.storageRegion,
-      maxFileSizeMb: maxFileSizeMb ?? this.maxFileSizeMb,
-      allowedMimeTypes: allowedMimeTypes ?? this.allowedMimeTypes,
-      notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
-      notificationsWebhookUrl:
-          notificationsWebhookUrl ?? this.notificationsWebhookUrl,
-    );
-  }
-
-  Map<String, dynamic> toPatchJson() {
-    /// Only include fields that differ from defaults for a PATCH request.
-    return toJson();
   }
 }
 

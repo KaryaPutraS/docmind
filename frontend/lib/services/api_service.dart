@@ -11,6 +11,9 @@ import '../models/settings_model.dart';
 class ApiService {
   late final Dio _dio;
 
+  /// Public accessor for direct Dio calls (e.g. fetch models list).
+  Dio get dio => _dio;
+
   /// Override the base URL at runtime or via --dart-define=API_BASE_URL
   /// Default: Android emulator → host machine
   static const String _definedUrl = String.fromEnvironment(

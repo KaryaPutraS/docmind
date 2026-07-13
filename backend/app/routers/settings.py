@@ -6,6 +6,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 
 from app.settings_store import (
+    KNOWN_MODELS,
     AppSettings,
     SettingsUpdate,
     get_settings,
@@ -33,6 +34,35 @@ async def patch_settings(body: SettingsUpdate):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.get("/models", response_model=dict)
+async def list_models(provider: str = "gemini"):
+    """
+    Return known models for a given AI provider.
+    The Flutter UI calls this to auto-populate the model dropdown
+    when the user selects a provider.
+    """
+    models = KNOWN_MODELS.get(provider, [])
+    return {
+        "provider": provider,
+        "models": models,
+        "default": models[0] if models else "",
+    }
+
+
+@router.get("/providers", response_model=dict)
+async def list_providers():
+    """Return all supported AI providers with their logo colors."""
+    return {
+        "providers": [
+            {"id": "gemini",     "name": "Google Gemini",     "color": "#4285F4"},
+            {"id": "openai",     "name": "OpenAI",            "color": "#10A37F"},
+            {"id": "groq",       "name": "Groq",              "color": "#F55036"},
+            {"id": "anthropic",  "name": "Anthropic Claude",  "color": "#D97757"},
+            {"id": "deepseek",   "name": "DeepSeek",          "color": "#4D6BFE"},
+        ]
+    }
+
+
 @router.get("/status", response_model=dict)
 async def system_status():
     """Quick health + connection status for the dashboard."""
@@ -47,7 +77,6 @@ async def system_status():
         "waha_webhook_secret_set": env.waha_webhook_secret not in ("", "change_me"),
     }
 
-    # Try a quick DB ping
     try:
         from app.database import engine
         async with engine.connect() as conn:
@@ -56,7 +85,6 @@ async def system_status():
     except Exception:
         status["postgres"] = "disconnected"
 
-    # Try MinIO ping
     try:
         from app.minio_client import get_minio_client
         client = get_minio_client()

@@ -1,5 +1,6 @@
 // ============================================================
-// DocMind Flutter — WAHA (WhatsApp) Settings Screen
+// DocMind Flutter — WAHA (WhatsApp) Settings Screen (v2)
+// Added: WAHA API Key field
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,15 +18,18 @@ class WahaSettingsScreen extends ConsumerStatefulWidget {
 class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _apiUrlCtrl;
+  late TextEditingController _apiKeyCtrl;
   late TextEditingController _sessionCtrl;
   late TextEditingController _pollingCtrl;
   late TextEditingController _whitelistCtrl;
+  bool _apiKeyVisible = false;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     _apiUrlCtrl = TextEditingController();
+    _apiKeyCtrl = TextEditingController();
     _sessionCtrl = TextEditingController();
     _pollingCtrl = TextEditingController();
     _whitelistCtrl = TextEditingController();
@@ -35,6 +39,7 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
       settingsAsync.whenData((s) {
         setState(() {
           _apiUrlCtrl.text = s.wahaApiUrl;
+          _apiKeyCtrl.text = s.wahaApiKey;
           _sessionCtrl.text = s.wahaSession;
           _pollingCtrl.text = s.wahaPollingIntervalSeconds.toString();
           _whitelistCtrl.text = s.wahaGroupWhitelist.join(', ');
@@ -46,6 +51,7 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
   @override
   void dispose() {
     _apiUrlCtrl.dispose();
+    _apiKeyCtrl.dispose();
     _sessionCtrl.dispose();
     _pollingCtrl.dispose();
     _whitelistCtrl.dispose();
@@ -60,6 +66,7 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
       final api = ref.read(apiServiceProvider);
       await api.updateSettings({
         'waha_api_url': _apiUrlCtrl.text.trim(),
+        'waha_api_key': _apiKeyCtrl.text.trim(),
         'waha_session': _sessionCtrl.text.trim(),
         'waha_polling_interval_seconds':
             int.parse(_pollingCtrl.text.trim()),
@@ -121,6 +128,31 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            // ── WAHA API KEY (NEW) ──────────────────
+            _buildCard(
+              icon: Icons.vpn_key_rounded,
+              title: 'WAHA API Key',
+              subtitle: 'API key / token for authenticating with the WAHA server',
+              child: TextFormField(
+                controller: _apiKeyCtrl,
+                obscureText: !_apiKeyVisible,
+                decoration: InputDecoration(
+                  hintText: 'your-waha-api-key-or-token',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.key),
+                  suffixIcon: IconButton(
+                    icon: Icon(_apiKeyVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility),
+                    onPressed: () =>
+                        setState(() => _apiKeyVisible = !_apiKeyVisible),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
             // ── WAHA API URL ──────────────────────
             _buildCard(
               icon: Icons.link_rounded,

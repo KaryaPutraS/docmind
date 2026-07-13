@@ -17,16 +17,61 @@ SETTINGS_FILE = Path(os.getenv("DOCMIND_SETTINGS_FILE", "/data/settings.json"))
 
 _lock = Lock()
 
+# ── Known provider → models mapping ─────────────────────────
+# These are returned by the /api/settings/models endpoint so the
+# Flutter UI can show a dropdown after user picks a provider.
+KNOWN_MODELS = {
+    "gemini": [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-2.0-flash",
+        "gemini-1.5-pro",
+        "gemini-1.5-flash",
+        "gemini-1.5-flash-8b",
+    ],
+    "openai": [
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4.1",
+        "gpt-4.1-mini",
+        "o4-mini",
+        "o3-mini",
+    ],
+    "groq": [
+        "llama-4-scout-17b-16e-instruct",
+        "llama-4-maverick-17b-128e-instruct",
+        "llama-3.3-70b-versatile",
+        "deepseek-r1-distill-llama-70b",
+        "qwen-2.5-32b",
+        "mixtral-8x7b-32768",
+    ],
+    "anthropic": [
+        "claude-sonnet-4-20250514",
+        "claude-3-5-sonnet-20241022",
+        "claude-3-5-haiku-20241022",
+        "claude-3-opus-20240229",
+    ],
+    "deepseek": [
+        "deepseek-chat",
+        "deepseek-reasoner",
+    ],
+}
+
 # Default settings
 _DEFAULTS = {
+    # ── AI ─────────────────────────────────────────
     "ai_provider": "gemini",
     "ai_model": "gemini-1.5-pro",
+    "ai_api_key": "",          # ⭐ NEW: user's own API key
     "ai_temperature": 0.3,
     "ai_max_tokens": 2048,
+    # ── WAHA ───────────────────────────────────────
     "waha_api_url": "http://localhost:3000",
+    "waha_api_key": "",        # ⭐ NEW: WAHA API key / session token
     "waha_session": "default",
     "waha_polling_interval_seconds": 30,
     "waha_group_whitelist": [],
+    # ── OCR ────────────────────────────────────────
     "ocr_enabled": True,
     "ocr_keywords": [
         "Surat", "Laporan", "KTP", "NPWP", "Invoice", "Kwitansi",
@@ -34,10 +79,19 @@ _DEFAULTS = {
         "Ijazah", "Rekening", "Formulir",
     ],
     "ocr_language": "ind+eng",
-    "storage_provider": "minio",
+    # ── Storage ────────────────────────────────────
+    "storage_provider": "minio",   # "minio" | "s3" | "firebase"
     "storage_bucket": "docmind-documents",
     "storage_endpoint": "localhost:9000",
     "storage_region": "us-east-1",
+    # ── Firebase (required when storage_provider=firebase) ──
+    "firebase_api_key": "",
+    "firebase_project_id": "",
+    "firebase_storage_bucket": "",
+    "firebase_app_id": "",
+    "firebase_messaging_sender_id": "",
+    "firebase_auth_domain": "",
+    # ── General ────────────────────────────────────
     "max_file_size_mb": 20,
     "allowed_mime_types": ["image/jpeg", "image/png", "image/webp", "application/pdf"],
     "notifications_enabled": True,
@@ -48,21 +102,35 @@ _DEFAULTS = {
 # ── Pydantic schema for API ──────────────────────────────────
 
 class AppSettings(BaseModel):
+    # AI
     ai_provider: str = "gemini"
     ai_model: str = "gemini-1.5-pro"
+    ai_api_key: str = ""
     ai_temperature: float = Field(default=0.3, ge=0.0, le=1.0)
     ai_max_tokens: int = Field(default=2048, ge=64, le=8192)
+    # WAHA
     waha_api_url: str = "http://localhost:3000"
+    waha_api_key: str = ""
     waha_session: str = "default"
     waha_polling_interval_seconds: int = Field(default=30, ge=5, le=300)
     waha_group_whitelist: list[str] = Field(default_factory=list)
+    # OCR
     ocr_enabled: bool = True
     ocr_keywords: list[str] = Field(default_factory=list)
     ocr_language: str = "ind+eng"
+    # Storage
     storage_provider: str = "minio"
     storage_bucket: str = "docmind-documents"
     storage_endpoint: str = "localhost:9000"
     storage_region: str = "us-east-1"
+    # Firebase
+    firebase_api_key: str = ""
+    firebase_project_id: str = ""
+    firebase_storage_bucket: str = ""
+    firebase_app_id: str = ""
+    firebase_messaging_sender_id: str = ""
+    firebase_auth_domain: str = ""
+    # General
     max_file_size_mb: int = Field(default=20, ge=1, le=500)
     allowed_mime_types: list[str] = Field(default_factory=list)
     notifications_enabled: bool = True
@@ -73,9 +141,11 @@ class SettingsUpdate(BaseModel):
     """Partial update — only the fields provided will be changed."""
     ai_provider: str | None = None
     ai_model: str | None = None
+    ai_api_key: str | None = None
     ai_temperature: float | None = Field(default=None, ge=0.0, le=1.0)
     ai_max_tokens: int | None = Field(default=None, ge=64, le=8192)
     waha_api_url: str | None = None
+    waha_api_key: str | None = None
     waha_session: str | None = None
     waha_polling_interval_seconds: int | None = Field(default=None, ge=5, le=300)
     waha_group_whitelist: list[str] | None = None
@@ -86,6 +156,12 @@ class SettingsUpdate(BaseModel):
     storage_bucket: str | None = None
     storage_endpoint: str | None = None
     storage_region: str | None = None
+    firebase_api_key: str | None = None
+    firebase_project_id: str | None = None
+    firebase_storage_bucket: str | None = None
+    firebase_app_id: str | None = None
+    firebase_messaging_sender_id: str | None = None
+    firebase_auth_domain: str | None = None
     max_file_size_mb: int | None = Field(default=None, ge=1, le=500)
     allowed_mime_types: list[str] | None = None
     notifications_enabled: bool | None = None
@@ -95,7 +171,6 @@ class SettingsUpdate(BaseModel):
 # ── Persistence ──────────────────────────────────────────────
 
 def _load_raw() -> dict:
-    """Load settings from disk, merging with defaults for any missing keys."""
     if SETTINGS_FILE.exists():
         try:
             with open(SETTINGS_FILE, "r") as f:
@@ -105,7 +180,6 @@ def _load_raw() -> dict:
             data = {}
     else:
         data = {}
-
     merged = dict(_DEFAULTS)
     merged.update({k: v for k, v in data.items() if k in _DEFAULTS})
     return merged
@@ -118,16 +192,25 @@ def _save_raw(data: dict) -> None:
 
 
 def get_settings() -> AppSettings:
-    """Return current settings as a typed model."""
     with _lock:
         return AppSettings(**_load_raw())
 
 
 def update_settings(patch: SettingsUpdate) -> AppSettings:
-    """Apply a partial update and persist. Returns the new full settings."""
     with _lock:
         current = _load_raw()
         updates = patch.model_dump(exclude_none=True)
         current.update(updates)
         _save_raw(current)
     return AppSettings(**current)
+
+
+def get_ai_api_key() -> str:
+    """Resolved API key: settings-store value first, then env fallback."""
+    settings = get_settings()
+    return settings.ai_api_key or os.getenv("GEMINI_API_KEY", "")
+
+
+def get_waha_api_key() -> str:
+    settings = get_settings()
+    return settings.waha_api_key or os.getenv("WAHA_API_KEY", "")
