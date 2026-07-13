@@ -1,5 +1,6 @@
 // ============================================================
 // DocMind Flutter — Settings Screen (Master)
+// Google Drive ONLY — no MinIO/S3/Firebase references.
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,7 +19,6 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsAsync = ref.watch(settingsProvider);
     final statusAsync = ref.watch(systemStatusProvider);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FC),
@@ -92,6 +92,28 @@ class SettingsScreen extends ConsumerWidget {
 
           const SizedBox(height: 16),
 
+          // ── Storage ────────────────────────────────────
+          _buildSectionHeader('Storage'),
+          _buildMenuTile(
+            context,
+            icon: Icons.cloud_done_rounded,
+            title: 'Google Drive',
+            subtitle: settingsAsync.whenOrNull(
+                  data: (s) => s.googleDriveCredentialsJson.isNotEmpty
+                      ? 'Connected · ${s.googleDriveFolderId}'
+                      : 'Not configured',
+                ) ??
+                '...',
+            color: const Color(0xFF0F9D58),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const StorageSettingsScreen()),
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
           // ── OCR ────────────────────────────────────────
           _buildSectionHeader('OCR & Document Filtering'),
           _buildMenuTile(
@@ -111,26 +133,6 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ),
 
-          const SizedBox(height: 16),
-
-          // ── Storage ────────────────────────────────────
-          _buildSectionHeader('Storage (MinIO)'),
-          _buildMenuTile(
-            context,
-            icon: Icons.cloud_rounded,
-            title: 'Storage Config',
-            subtitle: settingsAsync.whenOrNull(
-                  data: (s) => '${s.storageProvider} · ${s.storageBucket}',
-                ) ??
-                '...',
-            color: const Color(0xFF0EA5E9),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const StorageSettingsScreen()),
-            ),
-          ),
-
           const SizedBox(height: 24),
 
           // ── About ──────────────────────────────────────
@@ -144,7 +146,7 @@ class SettingsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('DocMind v1.0.0',
+                  Text('DocMind v2.0.0',
                       style: TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16)),
                   SizedBox(height: 4),
@@ -152,7 +154,8 @@ class SettingsScreen extends ConsumerWidget {
                       'AI-Powered Automated Document Management System',
                       style: TextStyle(color: Colors.grey, fontSize: 13)),
                   SizedBox(height: 8),
-                  Text('Built with: FastAPI · Flutter · MinIO · Gemini AI',
+                  Text(
+                      'Built with: FastAPI · Flutter · PostgreSQL · Google Drive · Gemini AI',
                       style: TextStyle(color: Colors.grey, fontSize: 12)),
                 ],
               ),
@@ -228,14 +231,8 @@ class SettingsScreen extends ConsumerWidget {
             _statusRow('PostgreSQL',
                 status.postgres == 'connected', Icons.storage_rounded),
             const Divider(height: 20),
-            _statusRow(
-                'MinIO', status.minio == 'connected', Icons.cloud_done_rounded),
-            const Divider(height: 20),
-            _statusRow('Gemini AI Key', status.geminiConfigured,
-                Icons.vpn_key_rounded),
-            const Divider(height: 20),
-            _statusRow('WAHA Webhook', status.wahaWebhookSecretSet,
-                Icons.webhook_rounded),
+            _statusRow('Google Drive',
+                status.driveCredentialsSet, Icons.cloud_done_rounded),
           ],
         ),
       ),
