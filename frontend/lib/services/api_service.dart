@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../models/document_model.dart';
+import '../models/settings_model.dart';
 
 class ApiService {
   late final Dio _dio;
@@ -89,5 +90,23 @@ class ApiService {
   Future<DocumentModel> getDocument(String docId) async {
     final response = await _dio.get('/api/documents/$docId');
     return DocumentModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Settings
+  // ─────────────────────────────────────────────────────────────
+  Future<AppSettings> getSettings() async {
+    final response = await _dio.get('/api/settings/');
+    return AppSettings.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<AppSettings> updateSettings(Map<String, dynamic> patch) async {
+    final response = await _dio.patch('/api/settings/', data: patch);
+    return AppSettings.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<SystemStatus> getSystemStatus() async {
+    final response = await _dio.get('/api/settings/status');
+    return SystemStatus.fromJson(response.data as Map<String, dynamic>);
   }
 }

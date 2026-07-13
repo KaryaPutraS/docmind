@@ -1,11 +1,13 @@
 // ============================================================
-// DocMind Flutter — App entry point
+// DocMind Flutter — App entry point with Bottom Navigation
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
+import 'providers/document_providers.dart';
 import 'screens/home_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,6 +36,16 @@ class DocMindApp extends StatelessWidget {
           centerTitle: false,
           elevation: 0,
         ),
+        segmentedButtonTheme: SegmentedButtonThemeData(
+          style: ButtonStyle(
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return const Color(0xFF4F6EF7).withOpacity(0.1);
+              }
+              return null;
+            }),
+          ),
+        ),
       ),
       builder: (context, child) {
         ErrorWidget.builder = (errorDetails) {
@@ -43,7 +55,8 @@ class DocMindApp extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
+                  Icon(Icons.error_outline,
+                      size: 48, color: Colors.red.shade300),
                   const SizedBox(height: 12),
                   Text(
                     'Something went wrong',
@@ -58,7 +71,8 @@ class DocMindApp extends StatelessWidget {
                     errorDetails.exceptionAsString().length > 200
                         ? '${errorDetails.exceptionAsString().substring(0, 200)}...'
                         : errorDetails.exceptionAsString(),
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.grey.shade500),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -68,7 +82,51 @@ class DocMindApp extends StatelessWidget {
         };
         return child!;
       },
-      home: const HomeScreen(),
+      home: const MainShell(),
+    );
+  }
+}
+
+/// Root shell with bottom navigation bar.
+class MainShell extends ConsumerWidget {
+  const MainShell({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final navIndex = ref.watch(bottomNavIndexProvider);
+
+    final screens = const [
+      HomeScreen(),
+      SettingsScreen(),
+    ];
+
+    return Scaffold(
+      body: IndexedStack(
+        index: navIndex,
+        children: screens,
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: navIndex,
+        onDestinationSelected: (i) =>
+            ref.read(bottomNavIndexProvider.notifier).state = i,
+        backgroundColor: Colors.white,
+        elevation: 2,
+        indicatorColor: const Color(0xFF4F6EF7).withOpacity(0.15),
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.folder_outlined),
+            selectedIcon: Icon(Icons.folder_rounded,
+                color: Color(0xFF4F6EF7)),
+            label: 'Documents',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.settings_outlined),
+            selectedIcon: Icon(Icons.settings_rounded,
+                color: Color(0xFF4F6EF7)),
+            label: 'Settings',
+          ),
+        ],
+      ),
     );
   }
 }

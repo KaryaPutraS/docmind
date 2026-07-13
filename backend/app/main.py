@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.database import engine
 from app.models import Base
-from app.routers import documents, webhook
+from app.routers import documents, webhook, settings
 
 settings = get_settings()
 
@@ -54,6 +54,7 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────
 app.include_router(webhook.router)
 app.include_router(documents.router)
+app.include_router(settings.router)
 
 
 @app.get("/health")

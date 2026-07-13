@@ -1,0 +1,249 @@
+// ============================================================
+// DocMind Flutter — WAHA (WhatsApp) Settings Screen
+// ============================================================
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../providers/document_providers.dart';
+
+class WahaSettingsScreen extends ConsumerStatefulWidget {
+  const WahaSettingsScreen({super.key});
+
+  @override
+  ConsumerState<WahaSettingsScreen> createState() =>
+      _WahaSettingsScreenState();
+}
+
+class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _apiUrlCtrl;
+  late TextEditingController _sessionCtrl;
+  late TextEditingController _pollingCtrl;
+  late TextEditingController _whitelistCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _apiUrlCtrl = TextEditingController();
+    _sessionCtrl = TextEditingController();
+    _pollingCtrl = TextEditingController();
+    _whitelistCtrl = TextEditingController();
+
+    Future.microtask(() {
+      final settingsAsync = ref.read(settingsProvider);
+      settingsAsync.whenData((s) {
+        setState(() {
+          _apiUrlCtrl.text = s.wahaApiUrl;
+          _sessionCtrl.text = s.wahaSession;
+          _pollingCtrl.text = s.wahaPollingIntervalSeconds.toString();
+          _whitelistCtrl.text = s.wahaGroupWhitelist.join(', ');
+        });
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _apiUrlCtrl.dispose();
+    _sessionCtrl.dispose();
+    _pollingCtrl.dispose();
+    _whitelistCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _saving = true);
+    try {
+      final api = ref.read(apiServiceProvider);
+      await api.updateSettings({
+        'waha_api_url': _apiUrlCtrl.text.trim(),
+        'waha_session': _sessionCtrl.text.trim(),
+        'waha_polling_interval_seconds':
+            int.parse(_pollingCtrl.text.trim()),
+        'waha_group_whitelist': _whitelistCtrl.text
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList(),
+      });
+      ref.invalidate(settingsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ WAHA settings saved'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ Failed: $e'),
+              backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FC),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: const Color(0xFF1A1F36),
+        foregroundColor: Colors.white,
+        title: const Text('WAHA Connection',
+            style: TextStyle(fontWeight: FontWeight.w600)),
+        actions: [
+          TextButton(
+            onPressed: _saving ? null : _save,
+            child: _saving
+                ? const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white))
+                : const Text('SAVE',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            // ── WAHA API URL ──────────────────────
+            _buildCard(
+              icon: Icons.link_rounded,
+              title: 'WAHA API URL',
+              subtitle: 'The full HTTP URL of your WAHA instance',
+              child: TextFormField(
+                controller: _apiUrlCtrl,
+                decoration: const InputDecoration(
+                  hintText: 'http://43.156.71.166:3000',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.link),
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Required';
+                  final uri = Uri.tryParse(v.trim());
+                  if (uri == null || !uri.hasScheme) return 'Invalid URL';
+                  return null;
+                },
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ── Session ───────────────────────────
+            _buildCard(
+              icon: Icons.smartphone_rounded,
+              title: 'Session Name',
+              subtitle: 'WAHA session ID (e.g. "default" or "ops")',
+              child: TextFormField(
+                controller: _sessionCtrl,
+                decoration: const InputDecoration(
+                  hintText: 'default',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.phone_android),
+                ),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Required' : null,
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ── Polling Interval ──────────────────
+            _buildCard(
+              icon: Icons.timer_rounded,
+              title: 'Polling Interval',
+              subtitle:
+                  'How often the backend polls WAHA for new messages (seconds)',
+              child: TextFormField(
+                controller: _pollingCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  hintText: '30',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.timer),
+                  suffixText: '5 - 300 sec',
+                ),
+                validator: (v) {
+                  final n = int.tryParse(v ?? '');
+                  if (n == null || n < 5 || n > 300)
+                    return 'Must be 5 - 300';
+                  return null;
+                },
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ── Group Whitelist ───────────────────
+            _buildCard(
+              icon: Icons.group_work_rounded,
+              title: 'Group Whitelist',
+              subtitle:
+                  'Comma-separated group chat IDs. Leave empty to process files from all chats.',
+              child: TextFormField(
+                controller: _whitelistCtrl,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  hintText: '6281234567890@g.us, 6289...@g.us',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.group_add),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 20, color: const Color(0xFF25D366)),
+                const SizedBox(width: 8),
+                Text(title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(subtitle,
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+            const SizedBox(height: 10),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
