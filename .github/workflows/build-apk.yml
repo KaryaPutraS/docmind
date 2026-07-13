@@ -63,41 +63,27 @@ jobs:
             --dart-define=API_BASE_URL=${{ env.BUILD_API_BASE_URL }} \
             --target-platform android-arm64
 
-      - name: Build APK (release)
+      - name: Rename & upload debug APK
         run: |
-          flutter build apk --release \
-            --dart-define=API_BASE_URL=${{ env.BUILD_API_BASE_URL }} \
-            --target-platform android-arm64
-
-      - name: Rename APKs for download
-        run: |
-          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr '+' '-')
           API_SUFFIX=$(echo "${{ env.BUILD_API_BASE_URL }}" | sed 's|[^a-zA-Z0-9]|_|g' | cut -c1-30)
-          cp build/app/outputs/flutter-apk/app-debug.apk "docmind-debug_${API_SUFFIX}.apk"
-          cp build/app/outputs/flutter-apk/app-release.apk "docmind-release_v${VERSION}_${API_SUFFIX}.apk"
-          echo "DEBUG_APK=docmind-debug_${API_SUFFIX}.apk" >> $GITHUB_ENV
-          echo "RELEASE_APK=docmind-release_v${VERSION}_${API_SUFFIX}.apk" >> $GITHUB_ENV
+          APK="docmind-debug_${API_SUFFIX}.apk"
+          cp build/app/outputs/flutter-apk/app-debug.apk "$APK"
+          echo "DEBUG_APK=$APK" >> $GITHUB_ENV
+          echo "DEBUG_APK_PATH=frontend/$APK" >> "$GITHUB_ENV"
+          echo "📦 Debug: $APK ($(du -h build/app/outputs/flutter-apk/app-debug.apk | cut -f1))"
 
-      - name: Upload debug APK (artifact)
+      - name: Upload APK (artifact)
         uses: actions/upload-artifact@v4
         with:
-          name: docmind-debug-apk
+          name: docmind-apk
           path: frontend/${{ env.DEBUG_APK }}
           retention-days: 7
 
-      - name: Upload release APK (artifact)
-        uses: actions/upload-artifact@v4
-        with:
-          name: docmind-release-apk
-          path: frontend/${{ env.RELEASE_APK }}
-          retention-days: 30
-
-      - name: Show download summary
+      - name: Show download link
         run: |
-          echo ""
           echo "══════════════════════════════════════════════"
           echo "  ✅ BUILD SUCCESS"
-          echo "  📦 Debug APK:  $DEBUG_APK"
-          echo "  📦 Release APK: $RELEASE_APK"
+          echo "  📦 APK: ${{ env.DEBUG_APK }}"
           echo "  🔗 Download from: Actions → Artifacts tab"
+          echo "  ⚠️ APK ini DEBUG build — untuk testing, bukan production"
           echo "══════════════════════════════════════════════"
