@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-SETTINGS_FILE = Path(os.getenv("DOCMIND_SETTINGS_FILE", os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "settings.json")))
+SETTINGS_FILE = Path(os.getenv("DOCMIND_SETTINGS_FILE", "/tmp/docmind_settings.json"))
 
 _lock = Lock()
 
