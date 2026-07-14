@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS documents (
 
     minio_bucket    TEXT NOT NULL DEFAULT 'docmind-documents',
     minio_object    TEXT NOT NULL,            -- key/path inside the bucket
+    drive_file_id   TEXT,                     -- Google Drive file ID
 
     ocr_text        TEXT,                     -- raw Tesseract output
     ai_summary      TEXT,                     -- short summary from Gemini
