@@ -48,7 +48,7 @@ def system_status():
         "postgres": "configured" if env.postgres_host else "not-configured",
         "google_drive": "connected" if drive_ok else "not-configured",
         "drive_credentials_set": drive_ok,
-        "waqa_webhook_secret_set": bool(env.waha_webhook_secret and env.waha_webhook_secret != "change_me"),
+        "waha_webhook_secret_set": bool(env.waha_webhook_secret and env.waha_webhook_secret != "change_me"),
     }
 
 
