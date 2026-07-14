@@ -25,6 +25,7 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
   late TextEditingController _whitelistCtrl;
   bool _apiKeyVisible = false;
   bool _webhookSecretVisible = false;
+  bool _hmacEnabled = false;
   bool _saving = false;
 
   @override
@@ -44,6 +45,7 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
           _apiUrlCtrl.text = s.wahaApiUrl;
           _apiKeyCtrl.text = s.wahaApiKey;
           _webhookSecretCtrl.text = s.wahaWebhookSecret;
+          _hmacEnabled = s.wahaHmacEnabled;
           _sessionCtrl.text = s.wahaSession;
           _pollingCtrl.text = s.wahaPollingIntervalSeconds.toString();
           _whitelistCtrl.text = s.wahaGroupWhitelist.join(', ');
@@ -73,6 +75,7 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
         'waha_api_url': _apiUrlCtrl.text.trim(),
         'waha_api_key': _apiKeyCtrl.text.trim(),
         'waha_webhook_secret': _webhookSecretCtrl.text.trim(),
+        'waha_hmac_enabled': _hmacEnabled,
         'waha_session': _sessionCtrl.text.trim(),
         'waha_polling_interval_seconds':
             int.parse(_pollingCtrl.text.trim()),
@@ -214,6 +217,21 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
                     },
                   ),
                   const SizedBox(height: 8),
+                  // HMAC Enable/Disable Toggle
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Enable HMAC Verification',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    subtitle: const Text(
+                      'OFF = accept all webhooks (for testing). ON = require matching signature.',
+                      style: TextStyle(fontSize: 10),
+                    ),
+                    value: _hmacEnabled,
+                    activeColor: const Color(0xFF25D366),
+                    dense: true,
+                    onChanged: (val) => setState(() => _hmacEnabled = val),
+                  ),
+                  const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(

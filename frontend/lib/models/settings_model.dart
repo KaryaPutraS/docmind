@@ -15,6 +15,7 @@ class AppSettings {
   final String wahaApiUrl;
   final String wahaApiKey;
   final String wahaWebhookSecret;
+  final bool wahaHmacEnabled;
   final String wahaSession;
   final int wahaPollingIntervalSeconds;
   final List<String> wahaGroupWhitelist;
@@ -40,6 +41,7 @@ class AppSettings {
     required this.wahaApiUrl,
     required this.wahaApiKey,
     required this.wahaWebhookSecret,
+    required this.wahaHmacEnabled,
     required this.wahaSession,
     required this.wahaPollingIntervalSeconds,
     required this.wahaGroupWhitelist,
@@ -64,6 +66,7 @@ class AppSettings {
       wahaApiUrl: json['waha_api_url'] as String? ?? '',
       wahaApiKey: json['...ey'] as String? ?? '',
       wahaWebhookSecret: json['waha_webhook_secret'] as String? ?? '',
+      wahaHmacEnabled: json['waha_hmac_enabled'] as bool? ?? false,
       wahaSession: json['waha_session'] as String? ?? 'default',
       wahaPollingIntervalSeconds:
           json['waha_polling_interval_seconds'] as int? ?? 30,
@@ -104,6 +107,7 @@ class AppSettings {
       'waha_api_url': wahaApiUrl,
       'waha_api_key': wahaApiKey,
       'waha_webhook_secret': wahaWebhookSecret,
+      'waha_hmac_enabled': wahaHmacEnabled,
       'waha_session': wahaSession,
       'waha_polling_interval_seconds': wahaPollingIntervalSeconds,
       'waha_group_whitelist': wahaGroupWhitelist,

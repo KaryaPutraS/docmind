@@ -39,14 +39,26 @@ def _background_with_logging(msg, media):
 def _verify_signature(body: bytes, signature: str | None) -> bool:
     """Verify the `X-Waha-Signature` header against the shared secret.
 
-    Returns True (skip verification) when WAHA_WEBHOOK_SECRET is unset
-    or set to the default 'change_me' — this is intentionally permissive
-    for local development. Set a strong random secret for production use.
+    Returns True when:
+    - HMAC is explicitly disabled (waha_hmac_enabled=False)
+    - Secret is unset or still the default 'change_me'
+    - The provided signature matches the computed HMAC
+
+    Returns False only when HMAC is enabled AND a non-default secret
+    is set AND the signature doesn't match.
     """
     settings = get_dynamic_settings()
+    
+    # User explicitly disabled HMAC verification
+    if not settings.waha_hmac_enabled:
+        return True
+    
     secret = settings.waha_webhook_secret
+    # Default/empty secret = dev mode, skip verification
     if not secret or secret == "change_me":
-        return True  # DEVELOPMENT ONLY
+        return True
+    
+    # Secret is set and HMAC enabled — require matching signature
     if not signature:
         return False
     expected = hmac.new(
