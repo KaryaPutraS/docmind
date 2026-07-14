@@ -14,6 +14,7 @@ class AppSettings {
   // WAHA
   final String wahaApiUrl;
   final String wahaApiKey;
+  final String wahaWebhookSecret;
   final String wahaSession;
   final int wahaPollingIntervalSeconds;
   final List<String> wahaGroupWhitelist;
@@ -38,6 +39,7 @@ class AppSettings {
     required this.aiMaxTokens,
     required this.wahaApiUrl,
     required this.wahaApiKey,
+    required this.wahaWebhookSecret,
     required this.wahaSession,
     required this.wahaPollingIntervalSeconds,
     required this.wahaGroupWhitelist,
@@ -60,7 +62,8 @@ class AppSettings {
       aiTemperature: (json['ai_temperature'] as num?)?.toDouble() ?? 0.3,
       aiMaxTokens: json['ai_max_tokens'] as int? ?? 2048,
       wahaApiUrl: json['waha_api_url'] as String? ?? '',
-      wahaApiKey: json['waha_api_key'] as String? ?? '',
+      wahaApiKey: json['...ey'] as String? ?? '',
+      wahaWebhookSecret: json['waha_webhook_secret'] as String? ?? '',
       wahaSession: json['waha_session'] as String? ?? 'default',
       wahaPollingIntervalSeconds:
           json['waha_polling_interval_seconds'] as int? ?? 30,
@@ -100,6 +103,7 @@ class AppSettings {
       'ai_max_tokens': aiMaxTokens,
       'waha_api_url': wahaApiUrl,
       'waha_api_key': wahaApiKey,
+      'waha_webhook_secret': wahaWebhookSecret,
       'waha_session': wahaSession,
       'waha_polling_interval_seconds': wahaPollingIntervalSeconds,
       'waha_group_whitelist': wahaGroupWhitelist,

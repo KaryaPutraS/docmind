@@ -32,7 +32,7 @@ class Document(Base):
     mime_type: Mapped[str | None] = mapped_column(Text, nullable=True)
     file_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
-    minio_bucket: Mapped[str] = mapped_column(Text, default="docmind-documents")
+    minio_bucket: Mapped[str] = mapped_column(Text, default="docmind", nullable=True)
     minio_object: Mapped[str] = mapped_column(Text, nullable=False)
     drive_file_id: Mapped[str | None] = mapped_column(Text, nullable=True)
 

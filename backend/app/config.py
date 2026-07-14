@@ -32,6 +32,13 @@ class Settings(BaseSettings):
 
     # ---- WAHA ----
     waha_webhook_secret: str = "change_me"
+    waha_api_url: str = "http://localhost:3000"
+    waha_internal_host: str = ""
+    # When WAHA sits behind a reverse proxy (e.g. Nginx), the media download URL
+    # received in the webhook payload may be an internal Docker hostname that is
+    # unreachable from the API container. Set waha_internal_host to the
+    # host:port where the API can actually reach WAHA (e.g. "http://172.18.0.1:3000").
+    # When empty, no URL rewrite is performed.
 
     # ---- App ----
     debug: bool = True

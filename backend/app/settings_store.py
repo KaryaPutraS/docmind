@@ -55,6 +55,7 @@ _DEFAULTS = {
     # ── WAHA ───────────────────────────────────────
     "waha_api_url": "http://localhost:3000",
     "waha_api_key": "",
+    "waha_webhook_secret": "change_me",
     "waha_session": "default",
     "waha_polling_interval_seconds": 30,
     "waha_group_whitelist": [],
@@ -89,6 +90,7 @@ class AppSettings(BaseModel):
     # WAHA
     waha_api_url: str = "http://localhost:3000"
     waha_api_key: str = ""
+    waha_webhook_secret: str = "change_me"
     waha_session: str = "default"
     waha_polling_interval_seconds: int = Field(default=30, ge=5, le=300)
     waha_group_whitelist: list[str] = Field(default_factory=list)
@@ -114,6 +116,7 @@ class SettingsUpdate(BaseModel):
     ai_max_tokens: int | None = Field(default=None, ge=64, le=8192)
     waha_api_url: str | None = None
     waha_api_key: str | None = None
+    waha_webhook_secret: str | None = None
     waha_session: str | None = None
     waha_polling_interval_seconds: int | None = Field(default=None, ge=5, le=300)
     waha_group_whitelist: list[str] | None = None

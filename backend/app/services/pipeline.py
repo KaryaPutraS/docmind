@@ -23,30 +23,22 @@ from app.models import Document
 from app.schemas import GeminiClassification, WAHAFile, WAHAMessage
 from app.services.ai_service import classify_document, generate_embedding
 from app.services.ocr_service import contains_keywords, ocr_extract
+from app.settings_store import get_settings as get_dynamic_settings
 
 logger = logging.getLogger(__name__)
-settings = get_settings()
+config = get_settings()  # env-based config (database, secrets, etc.)
 
 # Allowed MIME types that this pipeline will process
 ALLOWED_MIMES = {"image/jpeg", "image/png", "image/webp", "application/pdf"}
 
-# Maximum file size in bytes (default: 20 MB)
-MAX_FILE_SIZE = 20 * 1024 * 1024
-
 
 def _sanitize_path_segment(segment: str) -> str:
     """Remove path traversal patterns and other unsafe chars from AI-generated paths."""
-    # Strip leading/trailing whitespace and dots
     segment = segment.strip().strip(".")
-    # Replace path traversal sequences
     segment = re.sub(r"\.{2,}", "", segment)
-    # Replace any slash (Unix + Windows) with underscore — they'd create sub-keys
     segment = re.sub(r"[/\\]", "_", segment)
-    # Collapse multiple underscores/spaces
     segment = re.sub(r"[_\s]+", "_", segment)
-    # Strip leading/trailing underscores
     segment = segment.strip("_")
-    # Limit segment length
     if len(segment) > 100:
         segment = segment[:100]
     return segment or "unknown"
@@ -63,35 +55,44 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
     """
     mime = (media.mimetype or msg.type or "").lower()
 
-    # ── 1. Triage: only accept certain file types ──────────────
-    # TODO: Validate magic bytes against declared Content-Type for defense-in-depth.
-    #       The current check relies on the MIME string alone, which a malicious
-    #       WAHA instance (or MITM) could lie about.
+    # ── 1. Triage ──────────────────────────────────────
     if mime not in ALLOWED_MIMES:
         return {"status": "skipped", "reason": f"unsupported-mime:{mime}"}
 
-    # ── 2. Download the file from WAHA ─────────────────────────
+    # ── 2. Download the file from WAHA ─────────────────
     file_bytes = await _download_file(media.url)
     if file_bytes is None:
         return {"status": "error", "reason": "download-failed"}
 
-    if len(file_bytes) > MAX_FILE_SIZE:
+    dyn = get_dynamic_settings()
+    max_size = dyn.max_file_size_mb * 1024 * 1024
+    if len(file_bytes) > max_size:
         logger.warning("File %s exceeds size limit (%d bytes)", media.filename, len(file_bytes))
         return {"status": "skipped", "reason": "file-too-large"}
 
-    # ── 3. OCR & keyword filter ─────────────────────────────────
+    # ── 3. OCR & keyword filter ────────────────────────
     ocr_text = ocr_extract(file_bytes, mime)
-    if not contains_keywords(ocr_text):
-        return {"status": "skipped", "reason": "no-keywords-matched"}
+    if dyn.ocr_enabled and dyn.ocr_keywords:
+        if not contains_keywords(ocr_text, keywords=dyn.ocr_keywords):
+            return {"status": "skipped", "reason": "no-keywords-matched"}
 
-    # ── 4. AI classification (Gemini) ──────────────────────────
-    classification = await classify_document(ocr_text, media.filename or "unknown")
-    embedding = await generate_embedding(ocr_text[:4000] or classification.summary)
+    # ── 4. AI classification ──────────────────────────
+    classification = await classify_document(
+        ocr_text,
+        media.filename or "unknown",
+        provider=dyn.ai_provider,
+        model=dyn.ai_model,
+        api_key=dyn.ai_api_key,
+    )
+    embedding = await generate_embedding(
+        ocr_text[:4000] or classification.summary,
+        provider=dyn.ai_provider,
+        api_key=dyn.ai_api_key,
+    )
 
-    # ── 5. Upload to storage ────────────────────────────────────
+    # ── 5. Upload to Google Drive ──────────────────────
     ext = Path(media.filename or "doc").suffix or ".bin"
 
-    # Sanitize AI-generated path segments to prevent traversal/pollution
     folder_segments = [
         _sanitize_path_segment(s) for s in classification.folder_structure.split("/")
     ]
@@ -102,8 +103,6 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
     if not object_key.endswith(ext):
         object_key += ext
 
-    # Write to temp file, explicitly closing the handle before upload
-    # (required for Windows where open handles block subsequent file access)
     tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
     try:
         tmp.write(file_bytes)
@@ -117,7 +116,7 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
-    # ── 6. Persist metadata to PostgreSQL ──────────────────────
+    # ── 6. Persist metadata ────────────────────────────
     doc = await _save_metadata(msg, media, ocr_text, classification, embedding, object_key, drive_file_id=drive_file_id)
 
     logger.info("Document processed: %s → %s", media.filename, classification.new_filename)
@@ -131,6 +130,18 @@ async def _download_file(url: str | None) -> bytes | None:
     """Download file bytes from the WAHA media URL with a size limit."""
     if not url:
         return None
+    # If waha_internal_host is configured, rewrite the download URL
+    if config.waha_internal_host:
+        base = config.waha_internal_host.rstrip("/")
+        try:
+            from urllib.parse import urlparse, urlunparse
+            parsed = urlparse(url)
+            url = urlunparse(parsed._replace(
+                netloc=base.replace("http://", "").replace("https://", ""),
+                scheme=base.split("://")[0] if "://" in base else parsed.scheme,
+            ))
+        except Exception:
+            pass
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(url)
@@ -165,7 +176,6 @@ async def _save_metadata(
                 folder_path=classification.folder_structure,
                 mime_type=media.mimetype,
                 file_size=media.size,
-                minio_bucket=env.minio_bucket,
                 minio_object=object_key,
                 drive_file_id=drive_file_id,
                 ocr_text=ocr_text,
@@ -181,7 +191,6 @@ async def _save_metadata(
         doc = result.scalar_one_or_none()
 
         if doc is None:
-            # Already exists — fetch the existing row
             sel = select(Document).where(Document.wa_message_id == msg.id)
             result = await session.execute(sel)
             doc = result.scalar_one()

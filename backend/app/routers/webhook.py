@@ -19,13 +19,12 @@ from hashlib import sha256
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
-from app.config import get_settings
 from app.schemas import WAHAWebhook
 from app.services.pipeline import process_document
+from app.settings_store import get_settings as get_dynamic_settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhook", tags=["webhook"])
-settings = get_settings()
 
 
 def _background_with_logging(msg, media):
@@ -44,12 +43,14 @@ def _verify_signature(body: bytes, signature: str | None) -> bool:
     or set to the default 'change_me' — this is intentionally permissive
     for local development. Set a strong random secret for production use.
     """
-    if not settings.waha_webhook_secret or settings.waha_webhook_secret == "change_me":
-        return True  # DEVELOPMENT ONLY — skip signature verification
+    settings = get_dynamic_settings()
+    secret = settings.waha_webhook_secret
+    if not secret or secret == "change_me":
+        return True  # DEVELOPMENT ONLY
     if not signature:
         return False
     expected = hmac.new(
-        settings.waha_webhook_secret.encode(), body, sha256
+        secret.encode(), body, sha256
     ).hexdigest()
     return hmac.compare_digest(expected, signature)
 
@@ -68,11 +69,9 @@ async def waha_webhook(
     """
     body = await request.body()
 
-    # Optional signature check
     if not _verify_signature(body, x_waha_signature):
         raise HTTPException(status_code=401, detail="invalid-signature")
 
-    # Parse the webhook payload
     try:
         webhook = WAHAWebhook.model_validate_json(body)
     except Exception as exc:
@@ -81,12 +80,10 @@ async def waha_webhook(
 
     msg = webhook.payload
 
-    # Only process messages that carry a file attachment
     if not msg.media or not msg.media.url:
         logger.debug("Message %s has no media — ignoring", msg.id)
         return {"status": "ignored", "reason": "no-media"}
 
-    # Fire-and-forget: process in the background with error logging
     background.add_task(_background_with_logging, msg, msg.media)
 
     return {"status": "accepted", "message_id": msg.id}

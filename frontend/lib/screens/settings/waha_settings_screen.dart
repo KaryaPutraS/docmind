@@ -1,6 +1,6 @@
 // ============================================================
 // DocMind Flutter — WAHA (WhatsApp) Settings Screen (v3)
-// Added: WAHA API Key field
+// Added: WAHA API Key, Webhook Secret fields
 // ============================================================
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,10 +19,12 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _apiUrlCtrl;
   late TextEditingController _apiKeyCtrl;
+  late TextEditingController _webhookSecretCtrl;
   late TextEditingController _sessionCtrl;
   late TextEditingController _pollingCtrl;
   late TextEditingController _whitelistCtrl;
   bool _apiKeyVisible = false;
+  bool _webhookSecretVisible = false;
   bool _saving = false;
 
   @override
@@ -30,6 +32,7 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
     super.initState();
     _apiUrlCtrl = TextEditingController();
     _apiKeyCtrl = TextEditingController();
+    _webhookSecretCtrl = TextEditingController();
     _sessionCtrl = TextEditingController();
     _pollingCtrl = TextEditingController();
     _whitelistCtrl = TextEditingController();
@@ -40,6 +43,7 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
         setState(() {
           _apiUrlCtrl.text = s.wahaApiUrl;
           _apiKeyCtrl.text = s.wahaApiKey;
+          _webhookSecretCtrl.text = s.wahaWebhookSecret;
           _sessionCtrl.text = s.wahaSession;
           _pollingCtrl.text = s.wahaPollingIntervalSeconds.toString();
           _whitelistCtrl.text = s.wahaGroupWhitelist.join(', ');
@@ -52,6 +56,7 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
   void dispose() {
     _apiUrlCtrl.dispose();
     _apiKeyCtrl.dispose();
+    _webhookSecretCtrl.dispose();
     _sessionCtrl.dispose();
     _pollingCtrl.dispose();
     _whitelistCtrl.dispose();
@@ -67,6 +72,7 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
       await api.updateSettings({
         'waha_api_url': _apiUrlCtrl.text.trim(),
         'waha_api_key': _apiKeyCtrl.text.trim(),
+        'waha_webhook_secret': _webhookSecretCtrl.text.trim(),
         'waha_session': _sessionCtrl.text.trim(),
         'waha_polling_interval_seconds':
             int.parse(_pollingCtrl.text.trim()),
@@ -128,7 +134,30 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            // ── WAHA API KEY (NEW) ──────────────────
+            // ── WAHA API URL ──────────────────────
+            _buildCard(
+              icon: Icons.link_rounded,
+              title: 'WAHA API URL',
+              subtitle: 'The full HTTP URL of your WAHA instance',
+              child: TextFormField(
+                controller: _apiUrlCtrl,
+                decoration: const InputDecoration(
+                  hintText: 'http://43.156.71.166:3000',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.link),
+                ),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Required';
+                  final uri = Uri.tryParse(v.trim());
+                  if (uri == null || !uri.hasScheme) return 'Invalid URL';
+                  return null;
+                },
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            // ── WAHA API KEY ──────────────────────
             _buildCard(
               icon: Icons.vpn_key_rounded,
               title: 'WAHA API Key',
@@ -153,24 +182,58 @@ class _WahaSettingsScreenState extends ConsumerState<WahaSettingsScreen> {
 
             const SizedBox(height: 12),
 
-            // ── WAHA API URL ──────────────────────
+            // ── WEBHOOK SECRET ────────────────────
             _buildCard(
-              icon: Icons.link_rounded,
-              title: 'WAHA API URL',
-              subtitle: 'The full HTTP URL of your WAHA instance',
-              child: TextFormField(
-                controller: _apiUrlCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'http://43.156.71.166:3000',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.link),
-                ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Required';
-                  final uri = Uri.tryParse(v.trim());
-                  if (uri == null || !uri.hasScheme) return 'Invalid URL';
-                  return null;
-                },
+              icon: Icons.security_rounded,
+              title: 'Webhook Secret',
+              subtitle: 'Shared secret for HMAC signature verification.\n'
+                  'Set the same value in WAHA\'s WEBHOOK_SECRET config.\n'
+                  'WAHA must POST to: http://43.156.71.166/webhook/waha',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: _webhookSecretCtrl,
+                    obscureText: !_webhookSecretVisible,
+                    decoration: InputDecoration(
+                      hintText: 'generate-a-random-secret-here',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.lock),
+                      suffixIcon: IconButton(
+                        icon: Icon(_webhookSecretVisible
+                            ? Icons.visibility_off
+                            : Icons.visibility),
+                        onPressed: () => setState(
+                            () => _webhookSecretVisible = !_webhookSecretVisible),
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Required for production';
+                      if (v.trim().length < 8) return 'Min 8 characters';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'WAHA Webhook URL: http://43.156.71.166/webhook/waha',
+                            style: TextStyle(fontSize: 11, fontFamily: 'monospace', color: Colors.blue),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
 
