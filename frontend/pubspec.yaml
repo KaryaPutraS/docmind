@@ -1,7 +1,7 @@
 name: docmind_app
 description: DocMind — AI-Powered Document Management Flutter Client.
 publish_to: "none"
-version: 3.0.0+3
+version: 3.1.0+4
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
@@ -33,10 +33,12 @@ dev_dependencies:
   flutter_launcher_icons: ^0.13.1
 
 flutter_launcher_icons:
-  android: "launcher_icon"
+  android: true
   ios: true
   image_path: "assets/icon.jpg"
   min_sdk_android: 21
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon.jpg

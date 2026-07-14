@@ -34,8 +34,25 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ),
         foregroundColor: Colors.white,
-        title: const Text('Settings',
-            style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.asset(
+                'assets/icon.jpg',
+                width: 30,
+                height: 30,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Text(
+              'Settings',
+              style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.5),
+            ),
+          ],
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -151,7 +168,7 @@ class SettingsScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('DocMind v2.0.0',
+                  Text('DocMind v3.1.0',
                       style: TextStyle(
                           fontWeight: FontWeight.w700, fontSize: 16)),
                   SizedBox(height: 4),
@@ -230,7 +247,7 @@ class SettingsScreen extends ConsumerWidget {
                 Icons.dns_rounded),
             const Divider(height: 20),
             _statusRow('PostgreSQL',
-                status.postgres == 'connected', Icons.storage_rounded),
+                status.postgres == 'connected' || status.postgres == 'configured', Icons.storage_rounded),
             const Divider(height: 20),
             _statusRow('Google Drive',
                 status.driveCredentialsSet, Icons.cloud_done_rounded),

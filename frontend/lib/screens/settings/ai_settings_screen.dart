@@ -1,5 +1,5 @@
 // ============================================================
-// DocMind Flutter — AI Settings Screen (v2)
+// DocMind Flutter — AI Settings Screen (v3)
 // Full provider list, API key field, auto-fetch models on key
 // ============================================================
 import 'package:flutter/material.dart';

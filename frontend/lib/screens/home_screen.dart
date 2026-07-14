@@ -64,7 +64,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ref.read(searchQueryProvider.notifier).state = value.trim();
               },
             )
-          : const Text('DocMind', style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.5)),
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.asset(
+                    'assets/icon.jpg',
+                    width: 30,
+                    height: 30,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'DocMind',
+                  style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                ),
+              ],
+            ),
       actions: [
         IconButton(
           icon: Icon(isSearching ? Icons.close : Icons.search_rounded),
