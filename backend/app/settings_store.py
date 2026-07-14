@@ -145,7 +145,13 @@ def _load_raw() -> dict:
             logger.warning("Corrupted settings file, using defaults: %s", exc)
             data = {}
     else:
+        # First boot — create settings file with defaults
         data = {}
+        logger.info("Settings file not found at %s, creating with defaults", SETTINGS_FILE)
+        try:
+            _save_raw(dict(_DEFAULTS))
+        except OSError as exc:
+            logger.warning("Could not create settings file: %s — using in-memory defaults", exc)
     merged = dict(_DEFAULTS)
     # Only merge keys that exist in defaults (ignore stale keys from old versions)
     merged.update({k: v for k, v in data.items() if k in _DEFAULTS})

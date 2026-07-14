@@ -18,6 +18,7 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 
 
 @router.get("/", response_model=AppSettings)
+@router.get("", response_model=AppSettings)  # tanpa slash — mencegah 307 redirect
 def read_settings():
     """Return current runtime settings (API keys are truncated for display)."""
     s = get_settings()
@@ -25,6 +26,9 @@ def read_settings():
 
 
 @router.patch("/", response_model=AppSettings)
+@router.patch("", response_model=AppSettings)
+@router.put("/", response_model=AppSettings)
+@router.put("", response_model=AppSettings)
 def patch_settings(patch: SettingsUpdate):
     """Update runtime settings. Only provide fields you want to change."""
     try:
