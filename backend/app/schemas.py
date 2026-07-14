@@ -60,7 +60,7 @@ class DocumentResponse(BaseModel):
     file_size: int | None
     ai_summary: str | None
     processed_at: datetime | None
-    download_url: str | None = None   # signed or public MinIO URL
+    download_url: str | None = None   # Google Drive download URL
 
     model_config = {"from_attributes": True}
 

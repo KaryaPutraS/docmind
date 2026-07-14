@@ -1,7 +1,7 @@
 # ============================================================
 # DocMind — Core pipeline orchestrator
 # Called by the webhook router after validating the incoming message.
-# Performs: download → OCR filter → AI classify → MinIO upload → DB write
+# Performs: download → OCR filter → AI classify → Google Drive upload → DB write
 # ============================================================
 import logging
 import re

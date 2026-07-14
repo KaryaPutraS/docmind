@@ -1,6 +1,7 @@
 # ============================================================
 # DocMind — Unified storage (Google Drive ONLY)
-# Replaces minio_client.py — single backend, clean interface.
+# Google Drive storage client (wraps GoogleDriveClient)
+# Single backend, clean interface — named minio_client.py for legacy import compat.
 # ============================================================
 import logging
 
