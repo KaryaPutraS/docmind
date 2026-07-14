@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     def ocr_keyword_list(self) -> list[str]:
         return [kw.strip().lower() for kw in self.ocr_keywords.split(",") if kw.strip()]
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 
 
 @lru_cache()
