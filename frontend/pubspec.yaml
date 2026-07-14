@@ -1,7 +1,7 @@
 name: docmind_app
 description: DocMind — AI-Powered Document Management Flutter Client.
 publish_to: "none"
-version: 1.0.0+1
+version: 3.0.0+3
 
 environment:
   sdk: ">=3.5.0 <4.0.0"
