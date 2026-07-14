@@ -10,13 +10,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.database import engine
 from app.models import Base
-from app.routers import documents, webhook, settings
+from app.routers import documents, webhook, settings as settings_router
 
-settings = get_settings()
+cfg = get_settings()
 
 # ── Logging ──────────────────────────────────────────────
 logging.basicConfig(
-    level=logging.DEBUG if settings.debug else logging.INFO,
+    level=logging.DEBUG if cfg.debug else logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
@@ -54,7 +54,7 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────
 app.include_router(webhook.router)
 app.include_router(documents.router)
-app.include_router(settings.router)
+app.include_router(settings_router.router)
 
 
 @app.get("/health")
