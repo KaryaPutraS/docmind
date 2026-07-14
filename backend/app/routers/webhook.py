@@ -90,7 +90,10 @@ async def waha_webhook(
         logger.warning("Malformed webhook payload: %s", exc)
         raise HTTPException(status_code=400, detail="invalid-payload")
 
-    msg = webhook.payload
+    msg = webhook.get_message()
+    if msg is None:
+        logger.warning("Could not extract message from webhook payload")
+        raise HTTPException(status_code=400, detail="invalid-payload")
 
     if not msg.media or not msg.media.url:
         logger.debug("Message %s has no media — ignoring", msg.id)
