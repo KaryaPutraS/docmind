@@ -48,7 +48,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   PreferredSizeWidget _buildAppBar(bool isSearching) {
     return AppBar(
       elevation: 0,
-      backgroundColor: const Color(0xFF1A1F36),
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF1E1B4B), Color(0xFF4338CA)], // Deep violet to indigo
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+      ),
       foregroundColor: Colors.white,
       title: isSearching
           ? _SearchBar(
@@ -56,7 +64,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ref.read(searchQueryProvider.notifier).state = value.trim();
               },
             )
-          : const Text('DocMind', style: TextStyle(fontWeight: FontWeight.w600)),
+          : const Text('DocMind', style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.5)),
       actions: [
         IconButton(
           icon: Icon(isSearching ? Icons.close : Icons.search_rounded),
@@ -99,8 +107,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: Text(
                   parts[i],
                   style: TextStyle(
-                    fontWeight: i == parts.length - 1 ? FontWeight.w700 : FontWeight.w400,
-                    color: i == parts.length - 1 ? const Color(0xFF4F6EF7) : Colors.black87,
+                    fontWeight: i == parts.length - 1 ? FontWeight.w700 : FontWeight.w500,
+                    color: i == parts.length - 1 ? const Color(0xFF6366F1) : Colors.black87,
                   ),
                 ),
               ),
@@ -182,13 +190,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildFolderTile(String folderName, String currentPrefix) {
     final display = folderName.split('/').last;
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 3),
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: ListTile(
-        leading: const Icon(Icons.folder_rounded, color: Color(0xFF4F6EF7), size: 32),
-        title: Text(display, style: const TextStyle(fontWeight: FontWeight.w500)),
-        trailing: const Icon(Icons.chevron_right_rounded),
+        leading: const Icon(Icons.folder_rounded, color: Color(0xFF6366F1), size: 36),
+        title: Text(display, style: const TextStyle(fontWeight: FontWeight.w600)),
+        trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
         onTap: () {
           ref.read(currentFolderProvider.notifier).state = folderName;
         },
@@ -201,9 +206,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ─────────────────────────────────────────────────────────────
   Widget _buildFileTile(DocumentModel doc) {
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 3),
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: ListTile(
         leading: _fileIcon(doc.mimeType),
         title: Text(
@@ -332,19 +334,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } else {
       icon = Icons.insert_drive_file;
     }
-    return Icon(icon, size: 32, color: const Color(0xFF4F6EF7));
+    return Icon(icon, size: 36, color: const Color(0xFF6366F1));
   }
 
   Widget _categoryChip(String category) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF4F6EF7).withOpacity(0.1),
+        color: const Color(0xFF6366F1).withOpacity(0.12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         category,
-        style: const TextStyle(fontSize: 11, color: Color(0xFF4F6EF7), fontWeight: FontWeight.w600),
+        style: const TextStyle(fontSize: 11, color: Color(0xFF4F6EF7), fontWeight: FontWeight.w700),
       ),
     );
   }

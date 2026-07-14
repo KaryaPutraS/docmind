@@ -24,10 +24,18 @@ class SettingsScreen extends ConsumerWidget {
       backgroundColor: const Color(0xFFF8F9FC),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: const Color(0xFF1A1F36),
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF1E1B4B), Color(0xFF4338CA)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         foregroundColor: Colors.white,
         title: const Text('Settings',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+            style: TextStyle(fontWeight: FontWeight.w700, letterSpacing: 0.5)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -138,9 +146,6 @@ class SettingsScreen extends ConsumerWidget {
           // ── About ──────────────────────────────────────
           _buildSectionHeader('About'),
           Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14)),
             child: const Padding(
               padding: EdgeInsets.all(16),
               child: Column(
@@ -190,8 +195,6 @@ class SettingsScreen extends ConsumerWidget {
     required VoidCallback onTap,
   }) {
     return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: ListTile(
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -219,8 +222,6 @@ class SettingsScreen extends ConsumerWidget {
   // ──────────────────────────────────────────────────────────
   Widget _buildStatusCard(SystemStatus status, BuildContext context) {
     return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

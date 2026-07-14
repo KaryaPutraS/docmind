@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timeago/timeago.dart' as timeago;
+import 'package:google_fonts/google_fonts.dart';
 
 import 'providers/document_providers.dart';
 import 'screens/home_screen.dart';
@@ -29,18 +30,28 @@ class DocMindApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF4F6EF7),
+        colorSchemeSeed: const Color(0xFF6366F1), // Indigo/Purple gradient vibe
         brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF8F9FC),
+        scaffoldBackgroundColor: const Color(0xFFF4F7FC), // Softer, premium background
+        textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme),
         appBarTheme: const AppBarTheme(
           centerTitle: false,
           elevation: 0,
+          backgroundColor: Colors.transparent,
+          scrolledUnderElevation: 0,
+        ),
+        cardTheme: CardTheme(
+          elevation: 2,
+          shadowColor: Colors.black.withOpacity(0.04),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          color: Colors.white,
+          margin: const EdgeInsets.symmetric(vertical: 6),
         ),
         segmentedButtonTheme: SegmentedButtonThemeData(
           style: ButtonStyle(
             backgroundColor: WidgetStateProperty.resolveWith((states) {
               if (states.contains(WidgetState.selected)) {
-                return const Color(0xFF4F6EF7).withOpacity(0.1);
+                return const Color(0xFF6366F1).withOpacity(0.1);
               }
               return null;
             }),
@@ -110,19 +121,20 @@ class MainShell extends ConsumerWidget {
         onDestinationSelected: (i) =>
             ref.read(bottomNavIndexProvider.notifier).state = i,
         backgroundColor: Colors.white,
-        elevation: 2,
-        indicatorColor: const Color(0xFF4F6EF7).withOpacity(0.15),
+        elevation: 10,
+        indicatorColor: const Color(0xFF6366F1).withOpacity(0.15),
+        shadowColor: Colors.black.withOpacity(0.1),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.folder_outlined),
             selectedIcon: Icon(Icons.folder_rounded,
-                color: Color(0xFF4F6EF7)),
+                color: Color(0xFF6366F1)),
             label: 'Documents',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),
             selectedIcon: Icon(Icons.settings_rounded,
-                color: Color(0xFF4F6EF7)),
+                color: Color(0xFF6366F1)),
             label: 'Settings',
           ),
         ],
