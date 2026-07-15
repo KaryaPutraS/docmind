@@ -93,7 +93,11 @@ def contains_keywords(text: str, keywords: str | None = None) -> bool:
     
     kw_list = settings.ocr_keyword_list
     if keywords:
-        kw_list = [k.strip().lower() for k in keywords.split(",") if k.strip()]
+        if isinstance(keywords, str):
+            kw_list = [k.strip().lower() for k in keywords.split(",") if k.strip()]
+        else:
+            # Assuming it's already an iterable of strings
+            kw_list = [k.strip().lower() for k in keywords if isinstance(k, str) and k.strip()]
         
     for kw in kw_list:
         # kw_list elements from settings are already lowercased in config, 
