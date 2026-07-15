@@ -100,8 +100,8 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
         
         if is_image and dyn.ocr_enabled and dyn.ocr_keywords:
             if not contains_keywords(ocr_text, keywords=dyn.ocr_keywords):
-                await reply("❌ Gambar tidak relevan (tidak mengandung kata kunci surat/dokumen).")
-                return {"status": "skipped", "reason": "no-keywords-matched"}
+                logger.info("Image %s has no OCR keyword match; continuing upload because WAHA ingestion must not drop files", media.filename)
+                await reply("ℹ️ OCR tidak menemukan kata kunci, tetapi file tetap diproses dan disimpan.")
 
         # ── 4. AI classification ──────────────────────────
         await reply("⏳ Meminta AI Gemini untuk menganalisis dan mengategorikan...")
@@ -109,11 +109,7 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
             ocr_text,
             media.filename or "unknown"
         )
-        embedding = await generate_embedding(
-            ocr_text[:4000] or classification.summary,
-            provider=dyn.ai_provider,
-            api_key=dyn.ai_api_key,
-        )
+        embedding = await generate_embedding(ocr_text[:4000] or classification.summary)
 
         # ── 5. Upload to Google Drive ──────────────────────
         ext = Path(media.filename or "doc").suffix or ".bin"

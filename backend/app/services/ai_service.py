@@ -62,11 +62,27 @@ Jika teks OCR yang diberikan terlalu panjang, kacau, atau bahkan kosong (misalny
 
 async def classify_document(ocr_text: str, original_filename: str) -> GeminiClassification:
     """
-    Send OCR text to Gemini 1.5 Pro, parse the returned JSON,
-    and return a structured GeminiClassification.
+    Classify document metadata.
+
+    Current implementation uses Gemini SDK when provider is Gemini. If the user
+    selects a non-Gemini provider (DeepSeek/OpenAI/etc.) or no Gemini key exists,
+    we MUST NOT crash the WhatsApp → Drive pipeline. In that case use a safe
+    heuristic fallback so files still enter Google Drive and the app.
     """
-    _ensure_configured()
     dyn = get_dynamic_settings()
+    provider = (dyn.ai_provider or "gemini").lower()
+    api_key = dyn.ai_api_key or settings.gemini_api_key
+    if provider != "gemini" or not api_key:
+        logger.warning("AI provider %s is not handled by Gemini SDK; using fallback classification", provider)
+        return GeminiClassification(
+            new_filename=original_filename or "Dokumen_WhatsApp.pdf",
+            category="Lainnya",
+            folder_structure="WhatsApp/Belum_Diklasifikasi",
+            summary=(ocr_text[:250] if ocr_text else "File diterima dari WhatsApp dan disimpan tanpa klasifikasi AI."),
+            tags=["whatsapp", "auto-upload"],
+        )
+
+    _ensure_configured()
     model_name = dyn.ai_model or settings.gemini_model
     model = genai.GenerativeModel(
         model_name=model_name,

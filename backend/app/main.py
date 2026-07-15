@@ -1,6 +1,7 @@
 # ============================================================
 # DocMind — FastAPI application entry point
 # ============================================================
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -11,6 +12,7 @@ from app.config import get_settings
 from app.database import engine
 from app.models import Base
 from app.routers import documents, webhook, settings as settings_router, status
+from app.services.waha_poller import run_poller
 
 cfg = get_settings()
 
@@ -24,12 +26,21 @@ logging.basicConfig(
 # ── Lifespan (replaces deprecated on_event) ──────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create tables if they don't exist yet (dev convenience)."""
+    """Create tables and run WAHA polling fallback while the API is alive."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     logging.info("Database tables ensured.")
-    yield
-    await engine.dispose()
+
+    poller_task = asyncio.create_task(run_poller())
+    try:
+        yield
+    finally:
+        poller_task.cancel()
+        try:
+            await poller_task
+        except asyncio.CancelledError:
+            pass
+        await engine.dispose()
 
 
 # ── App ───────────────────────────────────────────────────
