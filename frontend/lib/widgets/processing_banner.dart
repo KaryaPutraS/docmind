@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../services/status_service.dart';
+import '../services/api_service.dart';
 
 class ProcessingBanner extends StatefulWidget {
   const ProcessingBanner({Key? key}) : super(key: key);
@@ -10,7 +10,7 @@ class ProcessingBanner extends StatefulWidget {
 }
 
 class _ProcessingBannerState extends State<ProcessingBanner> {
-  final StatusService _statusService = StatusService();
+  final ApiService _apiService = ApiService();
   Timer? _timer;
   List<dynamic> _statuses = [];
 
@@ -24,7 +24,7 @@ class _ProcessingBannerState extends State<ProcessingBanner> {
   }
 
   Future<void> _fetchStatus() async {
-    final statuses = await _statusService.fetchProcessingStatuses();
+    final statuses = await _apiService.getProcessingStatuses();
     if (mounted) {
       setState(() {
         _statuses = statuses;

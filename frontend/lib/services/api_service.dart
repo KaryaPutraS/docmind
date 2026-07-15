@@ -112,4 +112,16 @@ class ApiService {
     final response = await _dio.get('/api/settings/status');
     return SystemStatus.fromJson(response.data as Map<String, dynamic>);
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // Get active processing statuses
+  // ─────────────────────────────────────────────────────────────
+  Future<List<dynamic>> getProcessingStatuses() async {
+    try {
+      final response = await _dio.get('/api/status/processing');
+      return response.data as List<dynamic>;
+    } catch (e) {
+      return [];
+    }
+  }
 }
