@@ -149,6 +149,21 @@ async def _download_file(msg_id: str, url: str | None) -> tuple[bytes, str | Non
     if api_key:
         headers["X-Api-Key"] = api_key
 
+    # Rewrite localhost URLs using the configured WAHA API URL
+    if url and ("localhost" in url or "127.0.0.1" in url):
+        try:
+            from urllib.parse import urlparse, urlunparse
+            base_url = dyn_settings.waha_api_url.rstrip("/")
+            parsed = urlparse(url)
+            if parsed.hostname in ("localhost", "127.0.0.1"):
+                base_parsed = urlparse(base_url)
+                url = urlunparse(parsed._replace(
+                    netloc=base_parsed.netloc,
+                    scheme=base_parsed.scheme,
+                ))
+        except Exception:
+            pass
+
     # If waha_internal_host is configured, rewrite the download URL
     if config.waha_internal_host:
         base = config.waha_internal_host.rstrip("/")
