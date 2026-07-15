@@ -63,7 +63,11 @@ app.add_middleware(
 )
 
 # ── Routers ───────────────────────────────────────────────
+# WAHA webhook: support both public variants because WAHA/user settings may use either
+#   http://host/webhook/waha
+#   http://host/api/webhook/waha
 app.include_router(webhook.router)
+app.include_router(webhook.router, prefix="/api")
 app.include_router(documents.router)
 app.include_router(settings_router.router)
 app.include_router(status.router)

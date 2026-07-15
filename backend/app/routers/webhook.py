@@ -96,8 +96,18 @@ async def waha_webhook(
         raise HTTPException(status_code=400, detail="invalid-payload")
 
     has_media = msg.hasMedia or (msg.type in ("image", "document", "video", "audio", "ptt", "documentMessage"))
+    logger.info(
+        "WAHA webhook received: event=%s session=%s msg=%s chat=%s type=%s has_media=%s media_url=%s",
+        webhook.event,
+        webhook.session,
+        msg.id,
+        msg.chatId,
+        msg.type,
+        has_media,
+        bool(msg.media and msg.media.url),
+    )
     if not msg.media and not has_media:
-        logger.debug("Message %s has no media — ignoring", msg.id)
+        logger.info("WAHA message %s ignored: no media", msg.id)
         return {"status": "ignored", "reason": "no-media"}
 
     media_obj = msg.media or WAHAFile()
