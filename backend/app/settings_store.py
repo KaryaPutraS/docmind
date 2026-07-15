@@ -173,6 +173,17 @@ def update_settings(patch: SettingsUpdate) -> AppSettings:
     with _lock:
         current = _load_raw()
         updates = patch.model_dump(exclude_none=True)
+        
+        # Auto-parse Google Drive credentials if provided as a string
+        if "google_drive_credentials_json" in updates and isinstance(updates["google_drive_credentials_json"], str):
+            creds_str = updates["google_drive_credentials_json"].strip()
+            if creds_str:
+                try:
+                    # strict=False allows unescaped newlines in string values (e.g., in private_key)
+                    updates["google_drive_credentials_json"] = json.loads(creds_str, strict=False)
+                except Exception as e:
+                    logger.warning("Failed to parse google_drive_credentials_json: %s", e)
+                    
         current.update(updates)
         _save_raw(current)
     return AppSettings(**current)
@@ -194,7 +205,7 @@ def is_google_drive_configured() -> bool:
     creds = settings.google_drive_credentials_json
     if isinstance(creds, str):
         try:
-            creds = json.loads(creds)
+            creds = json.loads(creds, strict=False)
         except (json.JSONDecodeError, TypeError):
             return False
     if not creds:

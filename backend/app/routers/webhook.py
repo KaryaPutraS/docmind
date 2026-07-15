@@ -19,7 +19,7 @@ from hashlib import sha256
 
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
-from app.schemas import WAHAWebhook
+from app.schemas import WAHAWebhook, WAHAFile
 from app.services.pipeline import process_document
 from app.settings_store import get_settings as get_dynamic_settings
 
@@ -95,10 +95,12 @@ async def waha_webhook(
         logger.warning("Could not extract message from webhook payload")
         raise HTTPException(status_code=400, detail="invalid-payload")
 
-    if not msg.media or not msg.media.url:
+    has_media = msg.hasMedia or (msg.type in ("image", "document", "video", "audio", "ptt", "documentMessage"))
+    if not msg.media and not has_media:
         logger.debug("Message %s has no media — ignoring", msg.id)
         return {"status": "ignored", "reason": "no-media"}
 
-    background.add_task(_background_with_logging, msg, msg.media)
+    media_obj = msg.media or WAHAFile()
+    background.add_task(_background_with_logging, msg, media_obj)
 
     return {"status": "accepted", "message_id": msg.id}

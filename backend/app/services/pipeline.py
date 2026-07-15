@@ -23,7 +23,7 @@ from app.models import Document
 from app.schemas import GeminiClassification, WAHAFile, WAHAMessage
 from app.services.ai_service import classify_document, generate_embedding
 from app.services.ocr_service import contains_keywords, ocr_extract
-from app.settings_store import get_settings as get_dynamic_settings
+from app.settings_store import get_settings as get_dynamic_settings, get_waha_api_key
 
 logger = logging.getLogger(__name__)
 config = get_settings()  # env-based config (database, secrets, etc.)
@@ -60,7 +60,7 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
         return {"status": "skipped", "reason": f"unsupported-mime:{mime}"}
 
     # ── 2. Download the file from WAHA ─────────────────
-    file_bytes = await _download_file(media.url)
+    file_bytes = await _download_file(msg.id, media.url)
     if file_bytes is None:
         return {"status": "error", "reason": "download-failed"}
 
@@ -126,10 +126,19 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-async def _download_file(url: str | None) -> bytes | None:
+async def _download_file(msg_id: str, url: str | None) -> bytes | None:
     """Download file bytes from the WAHA media URL with a size limit."""
+    dyn_settings = get_dynamic_settings()
     if not url:
-        return None
+        base_url = dyn_settings.waha_api_url.rstrip("/")
+        session_name = dyn_settings.waha_session
+        url = f"{base_url}/api/{session_name}/messages/{msg_id}/download"
+
+    headers = {}
+    api_key = get_waha_api_key()
+    if api_key:
+        headers["X-Api-Key"] = api_key
+
     # If waha_internal_host is configured, rewrite the download URL
     if config.waha_internal_host:
         base = config.waha_internal_host.rstrip("/")
@@ -144,7 +153,7 @@ async def _download_file(url: str | None) -> bytes | None:
             pass
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.get(url)
+            resp = await client.get(url, headers=headers)
             resp.raise_for_status()
             return resp.content
     except Exception as exc:

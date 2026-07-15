@@ -31,6 +31,7 @@ class WAHAMessage(BaseModel):
     chatId: str = Field(default="unknown")
     body: str | None = None
     type: str | None = None          # "image", "document", "ptt", etc.
+    hasMedia: bool | None = None     # explicit hasMedia flag
     media: WAHAFile | None = None
     timestamp: int | None = None
 
@@ -76,6 +77,7 @@ class WAHAWebhook(BaseModel):
             chatId=str(chat_id),
             body=msg.get("body") or msg.get("caption") or "",
             type=msg.get("type", ""),
+            hasMedia=msg.get("hasMedia") if msg.get("hasMedia") is not None else msg.get("_data", {}).get("hasMedia"),
             media=WAHAFile(
                 mimetype=msg.get("media", {}).get("mimetype") if isinstance(msg.get("media"), dict) else None,
                 filename=msg.get("media", {}).get("filename") if isinstance(msg.get("media"), dict) else None,
