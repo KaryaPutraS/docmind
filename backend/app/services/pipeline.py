@@ -23,6 +23,7 @@ from app.models import Document
 from app.schemas import GeminiClassification, WAHAFile, WAHAMessage
 from app.services.ai_service import classify_document, generate_embedding
 from app.services.ocr_service import contains_keywords, ocr_extract
+from app.services.status_tracker import set_status, clear_status
 from app.settings_store import get_settings as get_dynamic_settings, get_waha_api_key
 
 logger = logging.getLogger(__name__)
@@ -56,93 +57,111 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
     mime = (media.mimetype or msg.type or "").lower()
 
     async def reply(text: str):
+        # We also report this status to the internal tracker
+        set_status(msg.id, text, media.filename or "Unknown", msg.from_)
         await _send_waha_reply(msg.chatId, text, reply_to=msg.id)
 
-    # ── 1. Triage ──────────────────────────────────────
-    # Allow generic types to pass triage, we will re-verify after download
-    if mime not in ALLOWED_MIMES and mime not in ("image", "document", "documentmessage", "video", "audio", "ptt", ""):
-        await reply(f"❌ Dokumen diabaikan karena tipe file tidak didukung ({mime}).")
-        return {"status": "skipped", "reason": f"unsupported-mime:{mime}"}
-
-    await reply("⏳ File diterima. Memulai pengunduhan...")
-
-    # ── 2. Download the file from WAHA ─────────────────
-    download_result = await _download_file(msg.id, media.url)
-    if download_result is None:
-        await reply("❌ Gagal mengunduh file dari server WAHA.")
-        return {"status": "error", "reason": "download-failed"}
-        
-    file_bytes, fetched_mime = download_result
-    
-    if not media.mimetype and fetched_mime:
-        mime = fetched_mime.split(";")[0].strip().lower()
-        media.mimetype = mime
-        
-    if mime not in ALLOWED_MIMES:
-        await reply(f"❌ File diabaikan setelah diunduh karena tipe tidak didukung ({mime}).")
-        return {"status": "skipped", "reason": f"unsupported-mime-after-download:{mime}"}
-
-    dyn = get_dynamic_settings()
-    max_size = dyn.max_file_size_mb * 1024 * 1024
-    if len(file_bytes) > max_size:
-        logger.warning("File %s exceeds size limit (%d bytes)", media.filename, len(file_bytes))
-        await reply("❌ File ditolak karena ukurannya terlalu besar.")
-        return {"status": "skipped", "reason": "file-too-large"}
-
-    # ── 3. OCR & keyword filter ────────────────────────
-    await reply("⏳ Mengurai isi dokumen (OCR)...")
-    ocr_text = ocr_extract(file_bytes, mime)
-    is_image = mime.startswith("image/")
-    
-    if is_image and dyn.ocr_enabled and dyn.ocr_keywords:
-        if not contains_keywords(ocr_text, keywords=dyn.ocr_keywords):
-            await reply("❌ Gambar tidak relevan (tidak mengandung kata kunci surat/dokumen).")
-            return {"status": "skipped", "reason": "no-keywords-matched"}
-
-    # ── 4. AI classification ──────────────────────────
-    await reply("⏳ Meminta AI Gemini untuk menganalisis dan mengategorikan...")
-    classification = await classify_document(
-        ocr_text,
-        media.filename or "unknown"
-    )
-    embedding = await generate_embedding(
-        ocr_text[:4000] or classification.summary,
-        provider=dyn.ai_provider,
-        api_key=dyn.ai_api_key,
-    )
-
-    # ── 5. Upload to Google Drive ──────────────────────
-    ext = Path(media.filename or "doc").suffix or ".bin"
-
-    folder_segments = [
-        _sanitize_path_segment(s) for s in classification.folder_structure.split("/")
-    ]
-    safe_folder = "/".join(s for s in folder_segments if s) or "Unsorted"
-    safe_filename = _sanitize_path_segment(classification.new_filename)
-
-    object_key = f"{safe_folder}/{safe_filename}"
-    if not object_key.endswith(ext):
-        object_key += ext
-
-    tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
     try:
-        tmp.write(file_bytes)
-        tmp.flush()
-        tmp_path = tmp.name
-    finally:
-        tmp.close()
+        # ── 1. Triage ──────────────────────────────────────
+        # Allow generic types to pass triage, we will re-verify after download
+        if mime not in ALLOWED_MIMES and mime not in ("image", "document", "documentmessage", "video", "audio", "ptt", ""):
+            await reply(f"❌ Dokumen diabaikan karena tipe file tidak didukung ({mime}).")
+            return {"status": "skipped", "reason": f"unsupported-mime:{mime}"}
 
-    try:
-        drive_file_id = upload_file(tmp_path, object_key, content_type=mime)
-    finally:
-        Path(tmp_path).unlink(missing_ok=True)
+        await reply("⏳ File diterima. Memulai pengunduhan...")
 
-    # ── 6. Persist metadata ────────────────────────────
-    doc = await _save_metadata(msg, media, ocr_text, classification, embedding, object_key, drive_file_id=drive_file_id)
+        # ── 2. Download the file from WAHA ─────────────────
+        download_result = await _download_file(msg.id, media.url)
+        if download_result is None:
+            await reply("❌ Gagal mengunduh file dari server WAHA.")
+            return {"status": "error", "reason": "download-failed"}
+            
+        file_bytes, fetched_mime = download_result
+        
+        if fetched_mime:
+            mime = fetched_mime.lower()
+            media.mimetype = mime
+            
+        if mime not in ALLOWED_MIMES:
+            await reply(f"❌ File diabaikan setelah diunduh karena tipe tidak didukung ({mime}).")
+            return {"status": "skipped", "reason": f"unsupported-mime-after-download:{mime}"}
 
-    logger.info("Document processed: %s → %s", media.filename, classification.new_filename)
-    await reply(f"✅ Berhasil diproses!\n📂 Kategori: {classification.category}\n📄 Disimpan sebagai: {classification.new_filename}")
-    return {"status": "processed", "document_id": str(doc.id)}
+        dyn = get_dynamic_settings()
+        max_size = dyn.max_file_size_mb * 1024 * 1024
+        if len(file_bytes) > max_size:
+            logger.warning("File %s exceeds size limit (%d bytes)", media.filename, len(file_bytes))
+            await reply("❌ File ditolak karena ukurannya terlalu besar.")
+            return {"status": "skipped", "reason": "file-too-large"}
+
+        # ── 3. OCR & keyword filter ────────────────────────
+        await reply("⏳ Mengurai isi dokumen (OCR)...")
+        ocr_text = ocr_extract(file_bytes, mime)
+        is_image = mime.startswith("image/")
+        
+        if is_image and dyn.ocr_enabled and dyn.ocr_keywords:
+            if not contains_keywords(ocr_text, keywords=dyn.ocr_keywords):
+                await reply("❌ Gambar tidak relevan (tidak mengandung kata kunci surat/dokumen).")
+                return {"status": "skipped", "reason": "no-keywords-matched"}
+
+        # ── 4. AI classification ──────────────────────────
+        await reply("⏳ Meminta AI Gemini untuk menganalisis dan mengategorikan...")
+        classification = await classify_document(
+            ocr_text,
+            media.filename or "unknown"
+        )
+        embedding = await generate_embedding(
+            ocr_text[:4000] or classification.summary,
+            provider=dyn.ai_provider,
+            api_key=dyn.ai_api_key,
+        )
+
+        # ── 5. Upload to Google Drive ──────────────────────
+        ext = Path(media.filename or "doc").suffix or ".bin"
+
+        folder_segments = [
+            _sanitize_path_segment(s) for s in classification.folder_structure.split("/")
+        ]
+        safe_folder = "/".join(s for s in folder_segments if s) or "Unsorted"
+        safe_filename = _sanitize_path_segment(classification.new_filename)
+
+        object_key = f"{safe_folder}/{safe_filename}"
+        if not object_key.endswith(ext):
+            object_key += ext
+
+        tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+        try:
+            tmp.write(file_bytes)
+            tmp.flush()
+            tmp_path = tmp.name
+        finally:
+            tmp.close()
+
+        try:
+            drive_file_id = upload_file(tmp_path, object_key, content_type=mime)
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
+
+        # ── 6. Persist metadata ────────────────────────────
+        doc = await _save_metadata(msg, media, ocr_text, classification, embedding, object_key, drive_file_id=drive_file_id)
+
+        logger.info("Document processed: %s → %s", media.filename, classification.new_filename)
+        await reply(f"✅ Berhasil diproses!\n📂 Kategori: {classification.category}\n📄 Disimpan sebagai: {classification.new_filename}")
+        
+        # Give UI a chance to show 'Berhasil' before clearing it
+        import asyncio
+        asyncio.create_task(clear_status_delayed(msg.id))
+        
+        return {"status": "processed", "document_id": str(doc.id)}
+    except Exception as e:
+        set_status(msg.id, f"❌ Terjadi kesalahan internal: {str(e)}", media.filename or "Unknown", msg.from_)
+        import asyncio
+        asyncio.create_task(clear_status_delayed(msg.id, delay=10))
+        raise e
+
+async def clear_status_delayed(msg_id: str, delay: int = 5):
+    import asyncio
+    await asyncio.sleep(delay)
+    clear_status(msg_id)
 
 
 # ---------------------------------------------------------------------------
