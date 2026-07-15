@@ -55,14 +55,21 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
     """
     mime = (media.mimetype or msg.type or "").lower()
 
+    async def reply(text: str):
+        await _send_waha_reply(msg.chatId, text, reply_to=msg.id)
+
     # ── 1. Triage ──────────────────────────────────────
     # Allow generic types to pass triage, we will re-verify after download
     if mime not in ALLOWED_MIMES and mime not in ("image", "document", "documentmessage", "video", "audio", "ptt", ""):
+        await reply(f"❌ Dokumen diabaikan karena tipe file tidak didukung ({mime}).")
         return {"status": "skipped", "reason": f"unsupported-mime:{mime}"}
+
+    await reply("⏳ File diterima. Memulai pengunduhan...")
 
     # ── 2. Download the file from WAHA ─────────────────
     download_result = await _download_file(msg.id, media.url)
     if download_result is None:
+        await reply("❌ Gagal mengunduh file dari server WAHA.")
         return {"status": "error", "reason": "download-failed"}
         
     file_bytes, fetched_mime = download_result
@@ -72,27 +79,31 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
         media.mimetype = mime
         
     if mime not in ALLOWED_MIMES:
+        await reply(f"❌ File diabaikan setelah diunduh karena tipe tidak didukung ({mime}).")
         return {"status": "skipped", "reason": f"unsupported-mime-after-download:{mime}"}
 
     dyn = get_dynamic_settings()
     max_size = dyn.max_file_size_mb * 1024 * 1024
     if len(file_bytes) > max_size:
         logger.warning("File %s exceeds size limit (%d bytes)", media.filename, len(file_bytes))
+        await reply("❌ File ditolak karena ukurannya terlalu besar.")
         return {"status": "skipped", "reason": "file-too-large"}
 
     # ── 3. OCR & keyword filter ────────────────────────
+    await reply("⏳ Mengurai isi dokumen (OCR)...")
     ocr_text = ocr_extract(file_bytes, mime)
-    if dyn.ocr_enabled and dyn.ocr_keywords:
+    is_image = mime.startswith("image/")
+    
+    if is_image and dyn.ocr_enabled and dyn.ocr_keywords:
         if not contains_keywords(ocr_text, keywords=dyn.ocr_keywords):
+            await reply("❌ Gambar tidak relevan (tidak mengandung kata kunci surat/dokumen).")
             return {"status": "skipped", "reason": "no-keywords-matched"}
 
     # ── 4. AI classification ──────────────────────────
+    await reply("⏳ Meminta AI Gemini untuk menganalisis dan mengategorikan...")
     classification = await classify_document(
         ocr_text,
-        media.filename or "unknown",
-        provider=dyn.ai_provider,
-        model=dyn.ai_model,
-        api_key=dyn.ai_api_key,
+        media.filename or "unknown"
     )
     embedding = await generate_embedding(
         ocr_text[:4000] or classification.summary,
@@ -130,12 +141,34 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
     doc = await _save_metadata(msg, media, ocr_text, classification, embedding, object_key, drive_file_id=drive_file_id)
 
     logger.info("Document processed: %s → %s", media.filename, classification.new_filename)
+    await reply(f"✅ Berhasil diproses!\n📂 Kategori: {classification.category}\n📄 Disimpan sebagai: {classification.new_filename}")
     return {"status": "processed", "document_id": str(doc.id)}
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+async def _send_waha_reply(chat_id: str, text: str, reply_to: str | None = None):
+    dyn = get_dynamic_settings()
+    base_url = dyn.waha_api_url.rstrip("/")
+    session = dyn.waha_session
+    api_key = get_waha_api_key()
+    
+    url = f"{base_url}/api/{session}/chat/sendText"
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["X-Api-Key"] = api_key
+        
+    payload = {"chatId": chat_id, "text": text}
+    if reply_to:
+        payload["reply_to"] = reply_to
+        
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            await client.post(url, json=payload, headers=headers)
+    except Exception as e:
+        logger.warning(f"Failed to send WAHA reply: {e}")
+
 async def _download_file(msg_id: str, url: str | None) -> tuple[bytes, str | None] | None:
     """Download file bytes from the WAHA media URL with a size limit."""
     dyn_settings = get_dynamic_settings()

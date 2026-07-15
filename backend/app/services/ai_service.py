@@ -53,7 +53,10 @@ Aturan:
 4. summary: ringkasan singkat isi dokumen dalam Bahasa Indonesia
 5. tags: 2-4 keyword tambahan
 
-JANGAN tambahkan teks apapun selain JSON. JANGAN gunakan markdown code fences."""
+JANGAN tambahkan teks apapun selain JSON. JANGAN gunakan markdown code fences.
+
+PENTING UNTUK DOKUMEN:
+Jika teks OCR yang diberikan terlalu panjang, kacau, atau bahkan kosong (misalnya karena file dokumen/PDF), Anda WAJIB memprioritaskan "Nama file asli" (Judul File) untuk menentukan kategori, folder_structure, dan new_filename. Jangan bergantung sepenuhnya pada OCR jika judul file sudah cukup jelas."""
 
 
 async def classify_document(ocr_text: str, original_filename: str) -> GeminiClassification:
