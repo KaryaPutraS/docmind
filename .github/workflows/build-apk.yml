@@ -41,7 +41,7 @@ jobs:
 
       - name: Set API base URL
         run: |
-          API_URL="${{ github.event.inputs.api_base_url || 'http://10.0.2.2:8000' }}"
+          API_URL="${{ github.event.inputs.api_base_url || 'http://43.156.71.166:8000' }}"
           echo "BUILD_API_BASE_URL=$API_URL" >> $GITHUB_ENV
           echo "🔗 API Base URL: $API_URL"
 

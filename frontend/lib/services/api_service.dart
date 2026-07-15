@@ -18,7 +18,7 @@ class ApiService {
   /// Default: Android emulator → host machine
   static const String _definedUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://192.168.3.3:8000',
+    defaultValue: 'http://43.156.71.166:8000',
   );
   static String baseUrlOverride = _definedUrl;
 
