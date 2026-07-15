@@ -154,12 +154,12 @@ async def _send_waha_reply(chat_id: str, text: str, reply_to: str | None = None)
     session = dyn.waha_session
     api_key = get_waha_api_key()
     
-    url = f"{base_url}/api/{session}/chat/sendText"
+    url = f"{base_url}/api/sendText"
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["X-Api-Key"] = api_key
         
-    payload = {"chatId": chat_id, "text": text}
+    payload = {"session": session, "chatId": chat_id, "text": text}
     if reply_to:
         payload["reply_to"] = reply_to
         

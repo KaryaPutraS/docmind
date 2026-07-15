@@ -8,6 +8,7 @@ import re
 import google.generativeai as genai
 
 from app.config import get_settings
+from app.settings_store import get_settings as get_dynamic_settings
 from app.schemas import GeminiClassification
 
 logger = logging.getLogger(__name__)
@@ -18,13 +19,13 @@ _configured = False
 
 def _ensure_configured() -> None:
     """Lazily initialise the Gemini client on first use (not at import time)."""
-    global _configured
-    if not _configured:
-        if settings.gemini_api_key:
-            genai.configure(api_key=settings.gemini_api_key)
-        else:
-            logger.warning("GEMINI_API_KEY is empty — AI features disabled")
-        _configured = True
+    dyn = get_dynamic_settings()
+    api_key = dyn.ai_api_key or settings.gemini_api_key
+    
+    if api_key:
+        genai.configure(api_key=api_key)
+    else:
+        logger.warning("GEMINI_API_KEY is empty — AI features disabled")
 
 
 # ---------------------------------------------------------------------------
@@ -65,8 +66,10 @@ async def classify_document(ocr_text: str, original_filename: str) -> GeminiClas
     and return a structured GeminiClassification.
     """
     _ensure_configured()
+    dyn = get_dynamic_settings()
+    model_name = dyn.ai_model or settings.gemini_model
     model = genai.GenerativeModel(
-        model_name=settings.gemini_model,
+        model_name=model_name,
         system_instruction=CLASSIFICATION_SYSTEM_PROMPT,
     )
 
