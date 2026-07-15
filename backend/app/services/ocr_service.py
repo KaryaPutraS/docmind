@@ -82,15 +82,22 @@ def ocr_extract(file_bytes: bytes, mime_type: str) -> str:
         return ""
 
 
-def contains_keywords(text: str) -> bool:
+def contains_keywords(text: str, keywords: str | None = None) -> bool:
     """
     Return True if the OCR text contains at least one keyword
-    from OCR_KEYWORDS (case-insensitive, partial match).
+    from the provided string or OCR_KEYWORDS (case-insensitive, partial match).
     """
     if not text:
         return False
     text_lower = text.lower()
-    for kw in settings.ocr_keyword_list:
-        if kw in text_lower:
+    
+    kw_list = settings.ocr_keyword_list
+    if keywords:
+        kw_list = [k.strip().lower() for k in keywords.split(",") if k.strip()]
+        
+    for kw in kw_list:
+        # kw_list elements from settings are already lowercased in config, 
+        # but if passed via string they are lowercased above
+        if (kw if isinstance(kw, str) else "").lower() in text_lower:
             return True
     return False
