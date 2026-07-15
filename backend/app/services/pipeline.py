@@ -56,13 +56,23 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
     mime = (media.mimetype or msg.type or "").lower()
 
     # ── 1. Triage ──────────────────────────────────────
-    if mime not in ALLOWED_MIMES:
+    # Allow generic types to pass triage, we will re-verify after download
+    if mime not in ALLOWED_MIMES and mime not in ("image", "document", "documentmessage", "video", "audio", "ptt", ""):
         return {"status": "skipped", "reason": f"unsupported-mime:{mime}"}
 
     # ── 2. Download the file from WAHA ─────────────────
-    file_bytes = await _download_file(msg.id, media.url)
-    if file_bytes is None:
+    download_result = await _download_file(msg.id, media.url)
+    if download_result is None:
         return {"status": "error", "reason": "download-failed"}
+        
+    file_bytes, fetched_mime = download_result
+    
+    if not media.mimetype and fetched_mime:
+        mime = fetched_mime.split(";")[0].strip().lower()
+        media.mimetype = mime
+        
+    if mime not in ALLOWED_MIMES:
+        return {"status": "skipped", "reason": f"unsupported-mime-after-download:{mime}"}
 
     dyn = get_dynamic_settings()
     max_size = dyn.max_file_size_mb * 1024 * 1024
@@ -126,7 +136,7 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-async def _download_file(msg_id: str, url: str | None) -> bytes | None:
+async def _download_file(msg_id: str, url: str | None) -> tuple[bytes, str | None] | None:
     """Download file bytes from the WAHA media URL with a size limit."""
     dyn_settings = get_dynamic_settings()
     if not url:
@@ -155,7 +165,7 @@ async def _download_file(msg_id: str, url: str | None) -> bytes | None:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.get(url, headers=headers)
             resp.raise_for_status()
-            return resp.content
+            return resp.content, resp.headers.get("content-type")
     except Exception as exc:
         logger.error("Download failed from %s: %s", url, exc)
         return None
