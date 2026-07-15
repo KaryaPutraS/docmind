@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/document_model.dart';
 import '../providers/document_providers.dart';
+import '../widgets/processing_banner.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -28,6 +29,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       appBar: _buildAppBar(isSearching),
       body: Column(
         children: [
+          const ProcessingBanner(),
           if (!isSearching) _buildBreadcrumbs(prefix),
           Expanded(
             child: isSearching ? _buildSearchResults(searchQuery) : _buildFolderView(prefix),
