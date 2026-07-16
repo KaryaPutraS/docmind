@@ -279,7 +279,7 @@ async def _save_metadata(
                 embedding=embedding if embedding else None,
                 processed_at=datetime.now(timezone.utc),
             )
-            .on_conflict_do_nothing(constraint="idx_documents_wa_msg")
+            .on_conflict_do_nothing(index_elements=["wa_message_id"])
             .returning(Document)
         )
         result = await session.execute(stmt)
