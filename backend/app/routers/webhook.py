@@ -12,7 +12,6 @@
 # 3. There is no authentication beyond the optional HMAC signature.
 #    TODO(auth): Consider API-key or mTLS for the webhook endpoint.
 # ============================================================
-import asyncio
 import hmac
 import logging
 from hashlib import sha256
@@ -27,10 +26,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhook", tags=["webhook"])
 
 
-def _background_with_logging(msg, media):
-    """Wrapper around process_document that logs and never raises."""
+async def _background_with_logging(msg, media):
+    """Wrapper around process_document that logs and never raises.
+
+    IMPORTANT: FastAPI/Starlette already runs async background callables on the
+    active event loop. Do not call asyncio.run() here; it creates a second loop
+    and asyncpg crashes with 'Future attached to a different loop'.
+    """
     try:
-        return asyncio.run(process_document(msg, media))
+        return await process_document(msg, media)
     except Exception:
         logger.exception("Unhandled error in background document processing")
         return None
