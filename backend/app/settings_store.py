@@ -76,7 +76,7 @@ _DEFAULTS = {
     "vps_storage_port": 22,
     "vps_storage_username": "",
     "vps_storage_password": "",
-    "vps_storage_base_path": "/app/uploads",
+    "vps_storage_base_path": "/data/uploads",
     "vps_storage_public_base_url": "http://43.156.71.166/uploads",
     # ── General ────────────────────────────────────
     "max_file_size_mb": 20,

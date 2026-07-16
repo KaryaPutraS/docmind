@@ -28,7 +28,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Set ownership to non-root user
-RUN chown -R docmind:docmind /app && mkdir -p /app/data && chown -R docmind:docmind /app/data
+RUN chown -R docmind:docmind /app && mkdir -p /app/data && chown -R docmind:docmind /app/data && mkdir -p /data/uploads && chown -R docmind:docmind /data
 USER docmind
 
 EXPOSE 8000

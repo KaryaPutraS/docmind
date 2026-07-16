@@ -48,7 +48,7 @@ services:
     volumes:
       - ./backend:/app
       - docmind_data:/app/data    # Persistent settings & runtime data
-      - docmind_uploads:/app/uploads  # Persistent file uploads (served by nginx)
+      - docmind_uploads:/data/uploads  # Persistent file uploads (served by nginx)
     user: "999:999"  # Match Docker volume default owner so /app/data and /app/uploads are writable
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
