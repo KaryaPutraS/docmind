@@ -68,9 +68,16 @@ _DEFAULTS = {
         "Ijazah", "Rekening", "Formulir",
     ],
     "ocr_language": "ind+eng",
-    # ── Google Drive storage ────────────────────────
+    # ── Storage ─────────────────────────────────────
+    "storage_provider": "vps",  # vps | google_drive
     "google_drive_credentials_json": {},
     "google_drive_folder_id": "root",
+    "vps_storage_host": "magang.vpsmso.site",
+    "vps_storage_port": 22,
+    "vps_storage_username": "magang",
+    "vps_storage_password": "",
+    "vps_storage_base_path": "/home/magang/docmind_uploads",
+    "vps_storage_public_base_url": "https://magang.vpsmso.site/docmind_uploads",
     # ── General ────────────────────────────────────
     "max_file_size_mb": 20,
     "allowed_mime_types": ["image/jpeg", "image/png", "image/webp", "application/pdf"],
@@ -101,8 +108,16 @@ class AppSettings(BaseModel):
     ocr_keywords: list[str] = Field(default_factory=list)
     ocr_language: str = "ind+eng"
     # Google Drive
+    storage_provider: str = "vps"
     google_drive_credentials_json: dict | str = Field(default_factory=dict)
     google_drive_folder_id: str = "root"
+    # VPS SFTP Storage
+    vps_storage_host: str = ""
+    vps_storage_port: int = Field(default=22, ge=1, le=65535)
+    vps_storage_username: str = ""
+    vps_storage_password: str = ""
+    vps_storage_base_path: str = "/home/magang/docmind_uploads"
+    vps_storage_public_base_url: str = "https://magang.vpsmso.site/docmind_uploads"
     # General
     max_file_size_mb: int = Field(default=20, ge=1, le=500)
     allowed_mime_types: list[str] = Field(default_factory=list)
@@ -128,6 +143,13 @@ class SettingsUpdate(BaseModel):
     ocr_language: str | None = None
     google_drive_credentials_json: dict | str | None = None
     google_drive_folder_id: str | None = None
+    storage_provider: str | None = None
+    vps_storage_host: str | None = None
+    vps_storage_port: int | None = Field(default=None, ge=1, le=65535)
+    vps_storage_username: str | None = None
+    vps_storage_password: str | None = None
+    vps_storage_base_path: str | None = None
+    vps_storage_public_base_url: str | None = None
     max_file_size_mb: int | None = Field(default=None, ge=1, le=500)
     allowed_mime_types: list[str] | None = None
     notifications_enabled: bool | None = None
