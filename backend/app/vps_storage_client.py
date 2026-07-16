@@ -1,11 +1,11 @@
 # ============================================================
-# DocMind — VPS SFTP Storage Client
+# DocMind — VPS / Local Storage Client
+# Supports: local filesystem (default), SFTP (remote VPS)
 # ============================================================
 import logging
 import os
+import shutil
 from pathlib import Path
-
-import paramiko
 
 from app.settings_store import get_settings
 
@@ -13,16 +13,16 @@ logger = logging.getLogger(__name__)
 
 
 class VpsStorageClient:
-    """Upload files to a remote VPS via SFTP."""
+    """Upload files to local filesystem (default) or remote VPS via SFTP."""
 
     def __init__(
         self,
-        host: str,
+        host: str = "",
         port: int = 22,
         username: str = "",
         password: str = "",
-        base_path: str = "/home/magang/docmind_uploads",
-        public_base_url: str = "https://magang.vpsmso.site/docmind_uploads",
+        base_path: str = "/app/uploads",
+        public_base_url: str = "http://43.156.71.166/uploads",
     ):
         self.host = host
         self.port = port
@@ -30,11 +30,7 @@ class VpsStorageClient:
         self.password = password
         self.base_path = base_path.rstrip("/")
         self.public_base_url = public_base_url.rstrip("/")
-
-    def _sftp_connect(self) -> paramiko.SFTPClient:
-        transport = paramiko.Transport((self.host, self.port))
-        transport.connect(username=self.username, password=self.password)
-        return paramiko.SFTPClient.from_transport(transport)
+        self._remote = bool(host and host not in ("localhost", "127.0.0.1"))
 
     def upload_file(
         self,
@@ -43,32 +39,45 @@ class VpsStorageClient:
         content_type: str = "application/octet-stream",
     ) -> str:
         """
-        Upload a file to VPS via SFTP.
-        Returns the public URL to access the file.
+        Upload a file. Returns the public URL to access the file.
+        - Local mode: copy to base_path on the same filesystem
+        - SFTP mode: upload to remote VPS
         """
-        remote_path = f"{self.base_path}/{object_name}"
+        if self._remote:
+            return self._sftp_upload(local_path, object_name)
+        return self._local_upload(local_path, object_name)
 
-        sftp = self._sftp_connect()
+    def _local_upload(self, local_path: str, object_name: str) -> str:
+        dest = os.path.join(self.base_path, object_name)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        shutil.copy2(local_path, dest)
+        os.chmod(dest, 0o644)
+        public_url = f"{self.public_base_url}/{object_name}"
+        logger.info("Local storage OK: %s → %s", local_path, public_url)
+        return public_url
+
+    def _sftp_upload(self, local_path: str, object_name: str) -> str:
+        import paramiko
+
+        remote_path = f"{self.base_path}/{object_name}"
+        transport = paramiko.Transport((self.host, self.port))
+        transport.connect(username=self.username, password=self.password)
+        sftp = paramiko.SFTPClient.from_transport(transport)
         try:
-            # Ensure directory exists
             dirname = os.path.dirname(remote_path)
             try:
                 sftp.stat(dirname)
             except FileNotFoundError:
                 self._mkdir_p(sftp, dirname)
-
             sftp.put(local_path, remote_path)
             sftp.chmod(remote_path, 0o644)
         finally:
             sftp.close()
-
-        # Return public URL
         public_url = f"{self.public_base_url}/{object_name}"
-        logger.info("VPS upload OK: %s → %s", local_path, public_url)
+        logger.info("SFTP upload OK: %s → %s", local_path, public_url)
         return public_url
 
-    def _mkdir_p(self, sftp: paramiko.SFTPClient, remote_directory: str):
-        """Create directory recursively on remote."""
+    def _mkdir_p(self, sftp, remote_directory: str):
         if remote_directory == "/":
             return
         try:
@@ -78,10 +87,6 @@ class VpsStorageClient:
             sftp.mkdir(remote_directory)
 
     def get_download_url(self, file_ref: str) -> str:
-        """
-        file_ref is already a public URL for VPS storage.
-        Just return it as-is for backward compat.
-        """
         if file_ref.startswith("http"):
             return file_ref
         return f"{self.public_base_url}/{file_ref}"
@@ -89,11 +94,12 @@ class VpsStorageClient:
     @classmethod
     def from_settings(cls) -> "VpsStorageClient":
         s = get_settings()
+        host = s.vps_storage_host or ""
         return cls(
-            host=s.vps_storage_host,
+            host=host,
             port=s.vps_storage_port,
             username=s.vps_storage_username,
             password=s.vps_storage_password,
-            base_path=s.vps_storage_base_path,
-            public_base_url=s.vps_storage_public_base_url,
+            base_path=s.vps_storage_base_path or "/app/uploads",
+            public_base_url=s.vps_storage_public_base_url or "http://43.156.71.166/uploads",
         )

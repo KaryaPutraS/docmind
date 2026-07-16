@@ -72,12 +72,12 @@ _DEFAULTS = {
     "storage_provider": "vps",  # vps | google_drive
     "google_drive_credentials_json": {},
     "google_drive_folder_id": "root",
-    "vps_storage_host": "magang.vpsmso.site",
+    "vps_storage_host": "",  # kosong = local storage di /app/uploads/
     "vps_storage_port": 22,
-    "vps_storage_username": "magang",
+    "vps_storage_username": "",
     "vps_storage_password": "",
-    "vps_storage_base_path": "/home/magang/docmind_uploads",
-    "vps_storage_public_base_url": "https://magang.vpsmso.site/docmind_uploads",
+    "vps_storage_base_path": "/app/uploads",
+    "vps_storage_public_base_url": "http://43.156.71.166/uploads",
     # ── General ────────────────────────────────────
     "max_file_size_mb": 20,
     "allowed_mime_types": ["image/jpeg", "image/png", "image/webp", "application/pdf"],
