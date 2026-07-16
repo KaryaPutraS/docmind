@@ -57,9 +57,9 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
     mime = (media.mimetype or msg.type or "").lower()
 
     async def reply(text: str):
-        # We also report this status to the internal tracker
+        # Report status to the in-app tracker only.
+        # User requested NO WhatsApp progress notifications.
         set_status(msg.id, text, media.filename or "Unknown", msg.from_)
-        await _send_waha_reply(msg.chatId, text, reply_to=msg.id)
 
     try:
         # ── 1. Triage ──────────────────────────────────────
@@ -104,7 +104,8 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
                 await reply("ℹ️ OCR tidak menemukan kata kunci, tetapi file tetap diproses dan disimpan.")
 
         # ── 4. AI classification ──────────────────────────
-        await reply("⏳ Meminta AI Gemini untuk menganalisis dan mengategorikan...")
+        provider_label = (dyn.ai_provider or "AI").strip().title()
+        await reply(f"⏳ Meminta AI {provider_label} untuk menganalisis dan mengategorikan...")
         classification = await classify_document(
             ocr_text,
             media.filename or "unknown"

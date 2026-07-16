@@ -6,6 +6,7 @@ import logging
 import re
 
 import google.generativeai as genai
+import httpx
 
 from app.config import get_settings
 from app.settings_store import get_settings as get_dynamic_settings
@@ -72,8 +73,37 @@ async def classify_document(ocr_text: str, original_filename: str) -> GeminiClas
     dyn = get_dynamic_settings()
     provider = (dyn.ai_provider or "gemini").lower()
     api_key = dyn.ai_api_key or settings.gemini_api_key
+    if provider == "deepseek" and api_key:
+        try:
+            user_prompt = (
+                f"Nama file asli: {original_filename}\n\n"
+                f"Teks hasil OCR:\n{ocr_text[:6000]}"
+            )
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post(
+                    "https://api.deepseek.com/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": dyn.ai_model or "deepseek-chat",
+                        "messages": [
+                            {"role": "system", "content": CLASSIFICATION_SYSTEM_PROMPT},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "temperature": dyn.ai_temperature,
+                        "max_tokens": dyn.ai_max_tokens,
+                        "response_format": {"type": "json_object"},
+                    },
+                )
+                resp.raise_for_status()
+                raw = resp.json()["choices"][0]["message"]["content"].strip()
+            raw = re.sub(r"^```(?:json)?\s*", "", raw)
+            raw = re.sub(r"\s*```$", "", raw)
+            return GeminiClassification(**json.loads(raw))
+        except Exception as exc:
+            logger.warning("DeepSeek classification failed; using fallback metadata: %s", exc)
+
     if provider != "gemini" or not api_key:
-        logger.warning("AI provider %s is not handled by Gemini SDK; using fallback classification", provider)
+        logger.warning("AI provider %s unavailable/unsupported; using fallback classification", provider)
         return GeminiClassification(
             new_filename=original_filename or "Dokumen_WhatsApp.pdf",
             category="Lainnya",
@@ -120,8 +150,15 @@ async def classify_document(ocr_text: str, original_filename: str) -> GeminiClas
 async def generate_embedding(text: str) -> list[float]:
     """
     Generate a 768-d embedding vector using Gemini's text-embedding-004.
-    Falls back gracefully if the embedding model is unavailable.
+    For non-Gemini providers (DeepSeek, etc.) skip embedding for now instead of
+    calling Gemini with an invalid key and filling logs with noise.
     """
+    dyn = get_dynamic_settings()
+    provider = (dyn.ai_provider or "gemini").lower()
+    api_key = dyn.ai_api_key or settings.gemini_api_key
+    if provider != "gemini" or not api_key:
+        logger.info("Embedding skipped for provider=%s", provider)
+        return []
     _ensure_configured()
     try:
         result = await genai.embed_content_async(
