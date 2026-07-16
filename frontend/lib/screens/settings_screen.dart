@@ -122,11 +122,18 @@ class SettingsScreen extends ConsumerWidget {
           _buildMenuTile(
             context,
             icon: Icons.cloud_done_rounded,
-            title: 'Google Drive',
+            title: 'Storage',
             subtitle: settingsAsync.whenOrNull(
-                  data: (s) => s.googleDriveCredentialsJson.isNotEmpty
-                      ? 'Connected · ${s.googleDriveFolderId}'
-                      : 'Not configured',
+                  data: (s) {
+                    if (s.storageProvider == 'google_drive') {
+                      return s.googleDriveCredentialsJson.isNotEmpty
+                          ? 'Google Drive · ${s.googleDriveFolderId}'
+                          : 'Drive (not configured)';
+                    }
+                    return s.vpsStorageHost.isNotEmpty
+                        ? 'VPS · ${s.vpsStorageHost}'
+                        : 'Not configured';
+                  },
                 ) ??
                 '...',
             color: const Color(0xFF0F9D58),
@@ -243,21 +250,18 @@ class SettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _statusRow('API Server', status.api == 'running',
-                Icons.dns_rounded),
+            _statusRow(context, 'API Server', status.api == 'running', Icons.dns_rounded),
             const Divider(height: 20),
-            _statusRow('PostgreSQL',
-                status.postgres == 'connected' || status.postgres == 'configured', Icons.storage_rounded),
+            _statusRow(context, 'PostgreSQL', status.postgres == 'connected' || status.postgres == 'configured', Icons.storage_rounded),
             const Divider(height: 20),
-            _statusRow('Google Drive',
-                status.driveCredentialsSet, Icons.cloud_done_rounded),
+            _statusRow(context, status.storage == 'vps' ? 'VPS Storage' : 'Google Drive', status.storageConnected, Icons.cloud_done_rounded),
           ],
         ),
       ),
     );
   }
 
-  Widget _statusRow(String label, bool ok, IconData icon) {
+  Widget _statusRow(BuildContext context, String label, bool ok, IconData icon) {
     return Row(
       children: [
         Icon(icon, size: 20, color: ok ? Colors.green : Colors.red),

@@ -23,9 +23,18 @@ class AppSettings {
   final bool ocrEnabled;
   final List<String> ocrKeywords;
   final String ocrLanguage;
+  // Storage
+  final String storageProvider;
   // Google Drive
   final String googleDriveCredentialsJson;
   final String googleDriveFolderId;
+  // VPS SFTP Storage
+  final String vpsStorageHost;
+  final int vpsStoragePort;
+  final String vpsStorageUsername;
+  final String vpsStoragePassword;
+  final String vpsStorageBasePath;
+  final String vpsStoragePublicBaseUrl;
   // General
   final int maxFileSizeMb;
   final List<String> allowedMimeTypes;
@@ -48,8 +57,15 @@ class AppSettings {
     required this.ocrEnabled,
     required this.ocrKeywords,
     required this.ocrLanguage,
+    required this.storageProvider,
     required this.googleDriveCredentialsJson,
     required this.googleDriveFolderId,
+    required this.vpsStorageHost,
+    required this.vpsStoragePort,
+    required this.vpsStorageUsername,
+    required this.vpsStoragePassword,
+    required this.vpsStorageBasePath,
+    required this.vpsStoragePublicBaseUrl,
     required this.maxFileSizeMb,
     required this.allowedMimeTypes,
     required this.notificationsEnabled,
@@ -74,10 +90,20 @@ class AppSettings {
       ocrEnabled: json['ocr_enabled'] as bool? ?? true,
       ocrKeywords: _parseStringList(json['ocr_keywords']),
       ocrLanguage: json['ocr_language'] as String? ?? 'ind+eng',
+      storageProvider:
+          json['storage_provider'] as String? ?? 'vps',
       googleDriveCredentialsJson:
           _serializeJsonField(json['google_drive_credentials_json']),
       googleDriveFolderId:
           json['google_drive_folder_id'] as String? ?? 'root',
+      vpsStorageHost: json['vps_storage_host'] as String? ?? '',
+      vpsStoragePort: json['vps_storage_port'] as int? ?? 22,
+      vpsStorageUsername: json['vps_storage_username'] as String? ?? '',
+      vpsStoragePassword: json['vps_storage_password'] as String? ?? '',
+      vpsStorageBasePath:
+          json['vps_storage_base_path'] as String? ?? '',
+      vpsStoragePublicBaseUrl:
+          json['vps_storage_public_base_url'] as String? ?? '',
       maxFileSizeMb: json['max_file_size_mb'] as int? ?? 20,
       allowedMimeTypes: _parseStringList(json['allowed_mime_types']),
       notificationsEnabled: json['notifications_enabled'] as bool? ?? false,
@@ -114,8 +140,15 @@ class AppSettings {
       'ocr_enabled': ocrEnabled,
       'ocr_keywords': ocrKeywords,
       'ocr_language': ocrLanguage,
+      'storage_provider': storageProvider,
       'google_drive_credentials_json': googleDriveCredentialsJson,
       'google_drive_folder_id': googleDriveFolderId,
+      'vps_storage_host': vpsStorageHost,
+      'vps_storage_port': vpsStoragePort,
+      'vps_storage_username': vpsStorageUsername,
+      'vps_storage_password': vpsStoragePassword,
+      'vps_storage_base_path': vpsStorageBasePath,
+      'vps_storage_public_base_url': vpsStoragePublicBaseUrl,
       'max_file_size_mb': maxFileSizeMb,
       'allowed_mime_types': allowedMimeTypes,
       'notifications_enabled': notificationsEnabled,
@@ -127,22 +160,22 @@ class AppSettings {
 class SystemStatus {
   final String api;
   final String postgres;
-  final String googleDrive;
-  final bool driveCredentialsSet;
+  final String storage;
+  final bool storageConnected;
 
   const SystemStatus({
     required this.api,
     required this.postgres,
-    required this.googleDrive,
-    required this.driveCredentialsSet,
+    required this.storage,
+    required this.storageConnected,
   });
 
   factory SystemStatus.fromJson(Map<String, dynamic> json) {
     return SystemStatus(
       api: json['api'] as String? ?? 'unknown',
       postgres: json['postgres'] as String? ?? 'unknown',
-      googleDrive: json['google_drive'] as String? ?? 'not-configured',
-      driveCredentialsSet: json['drive_credentials_set'] as bool? ?? false,
+      storage: json['storage'] as String? ?? 'not-configured',
+      storageConnected: json['storage_connected'] as bool? ?? false,
     );
   }
 }

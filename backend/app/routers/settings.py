@@ -42,16 +42,24 @@ def patch_settings(patch: SettingsUpdate):
 def system_status():
     """Return live status of all services."""
     from app.config import get_settings as get_env
+    from app.settings_store import get_settings
 
     env = get_env()
-
-    drive_ok = is_google_drive_configured()
+    s = get_settings()
+    provider = (s.storage_provider or "").lower()
+    
+    storage_connected = False
+    if provider == "vps":
+        storage_connected = bool(s.vps_storage_host and s.vps_storage_username)
+    elif provider == "google_drive":
+        drive_ok = is_google_drive_configured()
+        storage_connected = drive_ok
 
     return {
         "api": "running",
         "postgres": "configured" if env.postgres_host else "not-configured",
-        "google_drive": "connected" if drive_ok else "not-configured",
-        "drive_credentials_set": drive_ok,
+        "storage": provider if provider else "not-configured",
+        "storage_connected": storage_connected,
         "waha_webhook_secret_set": bool(env.waha_webhook_secret and env.waha_webhook_secret != "change_me"),
     }
 
