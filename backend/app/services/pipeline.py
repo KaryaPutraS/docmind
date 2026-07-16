@@ -132,16 +132,29 @@ async def process_document(msg: WAHAMessage, media: WAHAFile) -> dict:
         finally:
             tmp.close()
 
+        drive_file_id = ""
+        drive_error = ""
         try:
             drive_file_id = upload_file(tmp_path, object_key, content_type=mime)
+        except Exception as exc:
+            # Jangan hilangkan dokumen dari app hanya karena Google Drive menolak upload.
+            # Metadata tetap masuk DB supaya operator melihat file terdeteksi dan error Drive jelas di summary.
+            drive_error = str(exc)
+            logger.error("Google Drive upload failed; saving metadata without drive_file_id: %s", drive_error)
         finally:
             Path(tmp_path).unlink(missing_ok=True)
 
         # ── 6. Persist metadata ────────────────────────────
+        if drive_error:
+            classification.summary = f"Upload Google Drive gagal: {drive_error[:300]}"
+            classification.tags = list(dict.fromkeys([*(classification.tags or []), "drive-upload-failed"]))
         doc = await _save_metadata(msg, media, ocr_text, classification, embedding, object_key, drive_file_id=drive_file_id)
 
-        logger.info("Document processed: %s → %s", media.filename, classification.new_filename)
-        await reply(f"✅ Berhasil diproses!\n📂 Kategori: {classification.category}\n📄 Disimpan sebagai: {classification.new_filename}")
+        logger.info("Document processed: %s → %s drive_file_id=%s", media.filename, classification.new_filename, bool(drive_file_id))
+        if drive_file_id:
+            await reply(f"✅ Berhasil diproses!\n📂 Kategori: {classification.category}\n📄 Disimpan sebagai: {classification.new_filename}")
+        else:
+            await reply(f"⚠️ File terdeteksi dan masuk aplikasi, tetapi upload Google Drive gagal. Cek konfigurasi Drive/Shared Drive.\n📄 {classification.new_filename}")
         
         # Give UI a chance to show 'Berhasil' before clearing it
         import asyncio

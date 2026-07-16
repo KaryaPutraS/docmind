@@ -113,7 +113,7 @@ class GoogleDriveClient:
             body += f"\r\n--{boundary}--\r\n".encode("utf-8")
 
             resp = httpx.post(
-                "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
+                "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": f"multipart/related; boundary={boundary}",
@@ -124,7 +124,7 @@ class GoogleDriveClient:
         else:
             # Resumable upload for large files
             resp = httpx.post(
-                "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable",
+                "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json; charset=UTF-8",
@@ -172,7 +172,7 @@ class GoogleDriveClient:
 
         # Make file publicly accessible (viewer)
         httpx.post(
-            f"https://www.googleapis.com/drive/v3/files/{file_id}/permissions",
+            f"https://www.googleapis.com/drive/v3/files/{file_id}/permissions?supportsAllDrives=true",
             headers={"Authorization": f"Bearer {token}"},
             json={"role": "reader", "type": "anyone"},
             timeout=15.0,
