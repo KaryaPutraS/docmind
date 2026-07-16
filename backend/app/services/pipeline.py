@@ -258,37 +258,31 @@ async def _save_metadata(
 ) -> Document:
     """Insert (or upsert on wa_message_id) a document row."""
     async with AsyncSessionLocal() as session:
-        stmt = (
-            pg_insert(Document)
-            .values(
-                id=uuid.uuid4(),
-                wa_message_id=msg.id,
-                wa_chat_id=msg.chatId,
-                wa_sender=msg.from_,
-                original_filename=media.filename or "unknown",
-                new_filename=classification.new_filename,
-                category=classification.category,
-                folder_path=classification.folder_structure,
-                mime_type=media.mimetype,
-                file_size=media.size,
-                minio_object=object_key,
-                drive_file_id=drive_file_id,
-                ocr_text=ocr_text,
-                ai_summary=classification.summary,
-                ai_metadata=classification.model_dump(),
-                embedding=embedding if embedding else None,
-                processed_at=datetime.now(timezone.utc),
-            )
-            .on_conflict_do_nothing(index_elements=["wa_message_id"])
-            .returning(Document)
+        existing = await session.execute(select(Document).where(Document.wa_message_id == msg.id))
+        doc = existing.scalar_one_or_none()
+        if doc is not None:
+            return doc
+
+        doc = Document(
+            id=uuid.uuid4(),
+            wa_message_id=msg.id,
+            wa_chat_id=msg.chatId,
+            wa_sender=msg.from_,
+            original_filename=media.filename or "unknown",
+            new_filename=classification.new_filename,
+            category=classification.category,
+            folder_path=classification.folder_structure,
+            mime_type=media.mimetype,
+            file_size=media.size,
+            minio_object=object_key,
+            drive_file_id=drive_file_id,
+            ocr_text=ocr_text,
+            ai_summary=classification.summary,
+            ai_metadata=classification.model_dump(),
+            embedding=embedding if embedding else None,
+            processed_at=datetime.now(timezone.utc),
         )
-        result = await session.execute(stmt)
-        doc = result.scalar_one_or_none()
-
-        if doc is None:
-            sel = select(Document).where(Document.wa_message_id == msg.id)
-            result = await session.execute(sel)
-            doc = result.scalar_one()
-
+        session.add(doc)
         await session.commit()
+        await session.refresh(doc)
         return doc
